@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Battle-Sol | Solana Battleship</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              'navy-900': '#01041B',
+              'navy-800': '#0A0F2E',
+              'navy-700': '#131A4A',
+              'cyan-glow': '#00F6FF',
+              'magenta-glow': '#FF00E5',
+              'yellow-glow': '#FFD60A',
+            },
+            fontFamily: {
+              'orbitron': ['Orbitron', 'sans-serif'],
+              'sans': ['Inter', 'sans-serif'],
+            },
+            boxShadow: {
+              'cyan': '0 0 15px 1px rgba(0, 246, 255, 0.5)',
+              'magenta': '0 0 15px 1px rgba(255, 0, 229, 0.5)',
+              'yellow': '0 0 15px 1px rgba(255, 214, 10, 0.5)',
+            },
+            keyframes: {
+              'pulse-red': {
+                  '0%, 100%': { transform: 'scale(1)', opacity: '1' },
+                  '50%': { transform: 'scale(1.05)', opacity: '0.8' },
+              },
+              'pulse-blue': {
+                  '0%, 100%': { opacity: '0.6' },
+                  '50%': { opacity: '1' },
+              },
+              'scan-pulse': {
+                  '0%': { backgroundColor: 'rgba(0, 246, 255, 0)' },
+                  '50%': { backgroundColor: 'rgba(0, 246, 255, 0.3)' },
+                  '100%': { backgroundColor: 'rgba(0, 246, 255, 0)' },
+              }
+            },
+            animation: {
+              'pulse-red': 'pulse-red 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'pulse-blue': 'pulse-blue 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'scan': 'scan-pulse 1s ease-in-out',
+            }
+          }
+        }
+      }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://esm.sh/@solana/wallet-adapter-react-ui@0.9.35/styles.css" />
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.1.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
+    "react/": "https://esm.sh/react@^19.1.0/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.9.0",
+    "buffer": "https://esm.sh/buffer@^6.0.3",
+    "@solana/web3.js": "https://esm.sh/@solana/web3.js@^1.98.2",
+    "@solana/wallet-adapter-base": "https://esm.sh/@solana/wallet-adapter-base@^0.9.27",
+    "@solana/wallet-adapter-react-ui": "https://esm.sh/@solana/wallet-adapter-react-ui@^0.9.39",
+    "@solana/wallet-adapter-wallets": "https://esm.sh/@solana/wallet-adapter-wallets@^0.19.37",
+    "@solana/wallet-adapter-react": "https://esm.sh/@solana/wallet-adapter-react@^0.15.39"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
