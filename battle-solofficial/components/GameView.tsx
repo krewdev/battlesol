@@ -126,7 +126,12 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
     const allPlayerShipsSunk = gameState.playerShips.length > 0 && gameState.playerShips.every(ship => ship.sunk);
     const allOpponentShipsSunk = gameState.opponentShips.length > 0 && gameState.opponentShips.every(ship => ship.sunk);
 
-    if (allPlayerShipsSunk) return 'ai'; // 'ai' doubles as P2 win marker in PvP
+    if (allPlayerShipsSunk && allOpponentShipsSunk) {
+      // This is a draw - both fleets destroyed simultaneously (very rare)
+      return null; // Handle draw separately
+    }
+    
+    if (allPlayerShipsSunk) return 'ai';
     if (allOpponentShipsSunk) return 'player';
     
     return null;
@@ -139,7 +144,18 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
       setGameState(finalGameState);
       const winnerName = winner === 'player' ? 'Player 1' : (isPvp ? 'Player 2' : 'The AI');
       setMessage(winner === 'player' ? 'Victory! All enemy ships have been sunk.' : `Defeat! ${winnerName} has won.`);
-      setTimeout(() => onGameEnd(winner, finalGameState), 3000); // Delay for final state view
+      setTimeout(() => onGameEnd(winner, finalGameState), 2000); // Reduced delay for better UX
+    } else if (gameState && gameState.status === 'in_progress') {
+      // Check for draw condition
+      const allPlayerShipsSunk = gameState.playerShips.length > 0 && gameState.playerShips.every(ship => ship.sunk);
+      const allOpponentShipsSunk = gameState.opponentShips.length > 0 && gameState.opponentShips.every(ship => ship.sunk);
+      
+      if (allPlayerShipsSunk && allOpponentShipsSunk) {
+        const finalGameState = { ...gameState, status: 'finished' as const, winner: null };
+        setGameState(finalGameState);
+        setMessage('Draw! Both fleets have been destroyed.');
+        setTimeout(() => onGameEnd('draw', finalGameState), 2000);
+      }
     }
   }, [gameState, checkWinCondition, onGameEnd, setGameState, isPvp]);
 
@@ -147,73 +163,138 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
   const handleAiTurn = useCallback(async () => {
     if (!gameState || gameState.turn !== 'opponent' || gameState.status !== 'in_progress' || isPvp) return;
 
+    setIsAiThinking(true);
     setMessage('Enemy is targeting...');
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Reduced delay for better pacing
     
     // Handle EMP NFT
     if (gameState.isOpponentAdvantageDisabled) {
       setMessage('Enemy systems are still offline from our EMP! Turn skipped.');
       setGameState(gs => gs ? { ...gs, turn: 'player', isOpponentAdvantageDisabled: false } : null);
+      setIsAiThinking(false);
       return;
     }
 
     // Handle Sabotage NFT
-    if(gameState.advantage === 'sabotage' && Math.random() < 0.25) {
+    if(gameState.advantage === 'sabotage' && !gameState.advantageUsed && Math.random() < 0.25) {
         setMessage('Our Sabotage Protocol was successful! Enemy turn skipped.');
-        setGameState(gs => gs ? {...gs, turn: 'player'} : null);
+        setGameState(gs => gs ? {...gs, turn: 'player', advantageUsed: true} : null);
+        setIsAiThinking(false);
         return;
     }
 
+    // Handle Ghost Shield NFT
     if (gameState.advantage === 'ghost_shield' && !gameState.advantageUsed) {
+        // Ghost shield causes the first enemy shot to miss automatically
         const randomRow = Math.floor(Math.random() * GRID_SIZE);
         const randomCol = Math.floor(Math.random() * GRID_SIZE);
         setMessage('Enemy shot was deflected by our Ghost Shield!');
-        setGameState(gs => gs ? { ...gs, opponentShots: [...gs.opponentShots, {row: randomRow, col: randomCol}], turn: 'player', advantageUsed: true } : null);
+        setGameState(gs => gs ? { 
+          ...gs, 
+          opponentShots: [...gs.opponentShots, {row: randomRow, col: randomCol}], 
+          turn: 'player', 
+          advantageUsed: true 
+        } : null);
+        setIsAiThinking(false);
         return;
     }
 
-    let aiMove: Coordinates = await getAiMove(gameState.playerShips, gameState.opponentShots);
+    try {
+      let aiMove: Coordinates = await getAiMove(gameState.playerShips, gameState.opponentShots);
 
-    // Handle Decoy Buoy NFT
-    if (gameState.decoyPosition && aiMove.row === gameState.decoyPosition.row && aiMove.col === gameState.decoyPosition.col) {
-      setMessage("Success! The enemy hit our decoy buoy and wasted their turn.");
-      setGameState(gs => gs ? { ...gs, opponentShots: [...gs.opponentShots, aiMove], turn: 'player', decoyPosition: null } : null);
-      return;
-    }
-    
-    // Process Move
-    let hitShip: Ship | undefined;
-    for (const ship of gameState.playerShips) {
-        if (ship.placements.some(p => p.row === aiMove.row && p.col === aiMove.col)) {
-            hitShip = ship;
-            break;
+      // Validate AI move
+      if (gameState.opponentShots.some(shot => shot.row === aiMove.row && shot.col === aiMove.col)) {
+        console.error('AI tried to fire at already targeted coordinates, using fallback');
+        // Find a valid fallback move
+        for (let r = 0; r < GRID_SIZE; r++) {
+          for (let c = 0; c < GRID_SIZE; c++) {
+            if (!gameState.opponentShots.some(shot => shot.row === r && shot.col === c)) {
+              aiMove = { row: r, col: c };
+              break;
+            }
+          }
         }
-    }
+      }
 
-    if (hitShip) {
-        let wasReinforcedHit = false;
-        if (hitShip.id === gameState.reinforcedShipId && (hitShip.extraHealth || 0) > 0) {
-            wasReinforcedHit = true;
-        }
+      // Handle Decoy Buoy NFT
+      if (gameState.decoyPosition && aiMove.row === gameState.decoyPosition.row && aiMove.col === gameState.decoyPosition.col) {
+        setMessage("Success! The enemy hit our decoy buoy and wasted their turn.");
+        setGameState(gs => gs ? { 
+          ...gs, 
+          opponentShots: [...gs.opponentShots, aiMove], 
+          turn: 'player', 
+          decoyPosition: null 
+        } : null);
+        setIsAiThinking(false);
+        return;
+      }
+      
+      // Process Move
+      let hitShip: Ship | undefined;
+      for (const ship of gameState.playerShips) {
+          if (ship.placements.some(p => p.row === aiMove.row && p.col === aiMove.col)) {
+              hitShip = ship;
+              break;
+          }
+      }
 
-        const newHits = wasReinforcedHit ? hitShip.hits : [...hitShip.hits, aiMove];
-        const newExtraHealth = wasReinforcedHit ? (hitShip.extraHealth || 1) - 1 : hitShip.extraHealth;
-        const sunk = newHits.length === hitShip.placements.length;
-        
-        const updatedShips = gameState.playerShips.map(s => s.id === hitShip!.id ? { ...s, hits: newHits, sunk, extraHealth: newExtraHealth } : s);
+      if (hitShip) {
+          let wasReinforcedHit = false;
+          let newHits = [...hitShip.hits];
+          let newExtraHealth = hitShip.extraHealth;
+          
+          // Check if this is a hit on a reinforced ship with extra health
+          if (hitShip.id === gameState.reinforcedShipId && (hitShip.extraHealth || 0) > 0) {
+              wasReinforcedHit = true;
+              newExtraHealth = (hitShip.extraHealth || 1) - 1;
+              // Don't add to hits if reinforced ship still has extra health
+              if (newExtraHealth <= 0) {
+                newHits.push(aiMove);
+              }
+          } else {
+              newHits.push(aiMove);
+          }
 
-        if (wasReinforcedHit) {
-             setMessage(`Enemy hit our Reinforced ${hitShip.name}, but it holds!`);
-        } else if (sunk) {
-            setMessage(`Enemy sunk our ${hitShip.name}!`);
-        } else {
-            setMessage(`Enemy hit our ${hitShip.name}!`);
-        }
-        setGameState(gs => gs ? { ...gs, playerShips: updatedShips, opponentShots: [...gs.opponentShots, aiMove], turn: 'player' } : null);
+          const sunk = newHits.length === hitShip.placements.length;
+          
+          const updatedShips = gameState.playerShips.map(s => 
+            s.id === hitShip!.id ? { 
+              ...s, 
+              hits: newHits, 
+              sunk, 
+              extraHealth: newExtraHealth 
+            } : s
+          );
 
-    } else {
-      setMessage('Enemy shot missed!');
-      setGameState(gs => gs ? { ...gs, opponentShots: [...gs.opponentShots, aiMove], turn: 'player' } : null);
+          if (wasReinforcedHit && (newExtraHealth || 0) > 0) {
+               setMessage(`Enemy hit our Reinforced ${hitShip.name}, but it holds! (${newExtraHealth} extra health remaining)`);
+          } else if (sunk) {
+              setMessage(`Enemy sunk our ${hitShip.name}!`);
+          } else {
+              setMessage(`Enemy hit our ${hitShip.name}!`);
+          }
+          
+          setGameState(gs => gs ? { 
+            ...gs, 
+            playerShips: updatedShips, 
+            opponentShots: [...gs.opponentShots, aiMove], 
+            turn: 'player' 
+          } : null);
+
+      } else {
+        setMessage('Enemy shot missed!');
+        setGameState(gs => gs ? { 
+          ...gs, 
+          opponentShots: [...gs.opponentShots, aiMove], 
+          turn: 'player' 
+        } : null);
+      }
+    } catch (error) {
+      console.error('Error in AI turn:', error);
+      setMessage('Enemy systems malfunction! Turn skipped.');
+      setGameState(gs => gs ? { ...gs, turn: 'player' } : null);
+    } finally {
+      setIsAiThinking(false);
     }
   }, [gameState, setGameState, isPvp]);
 
@@ -231,6 +312,12 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
   const handlePlayerFire = (coords: Coordinates) => {
     if (gameState?.status !== 'in_progress' || (gameState.turn !== 'player' && !isPvp) || isScanning || isVolleying) return;
 
+    // Validate coordinates
+    if (coords.row < 0 || coords.row >= GRID_SIZE || coords.col < 0 || coords.col >= GRID_SIZE) {
+      setMessage("Invalid target coordinates.");
+      return;
+    }
+
     if (gameState.playerShots.some(shot => shot.row === coords.row && shot.col === coords.col)) {
       setMessage("You've already fired at these coordinates.");
       return;
@@ -242,47 +329,80 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
     }
 
     let targetCoords = coords;
-
     let hitShip: Ship | undefined;
-    const findHitShip = (c: Coordinates) => gameState.opponentShips.find(ship => ship.placements.some(p => p.row === c.row && p.col === c.col));
+    const findHitShip = (c: Coordinates) => gameState.opponentShips.find(ship => 
+      ship.placements.some(p => p.row === c.row && p.col === c.col)
+    );
     
     hitShip = findHitShip(targetCoords);
 
     // Targeting Computer NFT Logic
     if (!hitShip && gameState.advantage === 'targeting_computer' && !gameState.advantageUsed) {
         const allShipCells = gameState.opponentShips.flatMap(s => s.placements);
-        const openShipCells = allShipCells.filter(cell => !gameState.playerShots.some(shot => shot.row === cell.row && shot.col === cell.col));
+        const openShipCells = allShipCells.filter(cell => 
+          !gameState.playerShots.some(shot => shot.row === cell.row && shot.col === cell.col)
+        );
+        
         if (openShipCells.length > 0) {
             targetCoords = openShipCells[Math.floor(Math.random() * openShipCells.length)];
-            hitShip = findHitShip(targetCoords); // Re-check for hit
-            setMessage("Targeting Computer engaged! Re-routing shot...");
+            hitShip = findHitShip(targetCoords);
+            setMessage("Targeting Computer engaged! Shot redirected to enemy vessel.");
             setGameState(gs => gs ? { ...gs, advantageUsed: true } : null);
+            
+            // Add a small delay to show the targeting computer effect
+            setTimeout(() => {
+              processPlayerShot(targetCoords, hitShip);
+            }, 500);
+            return;
         }
     }
 
+    processPlayerShot(targetCoords, hitShip);
+  };
+
+  const processPlayerShot = (targetCoords: Coordinates, hitShip: Ship | undefined) => {
+    if (!gameState) return;
+
     if (hitShip) {
         let nextTurn: 'player' | 'opponent' = 'opponent';
+        let shotMessage = `Direct hit on enemy ${hitShip.name}!`;
+        
+        // Extra shot NFT logic
         if (gameState.advantage === 'extra_shot' && !gameState.advantageUsed) {
             nextTurn = 'player';
-            setMessage('Rapid Fire Protocol! You get an extra shot.');
+            shotMessage = 'Rapid Fire Protocol activated! Direct hit - you get another shot!';
             setGameState(gs => gs ? { ...gs, advantageUsed: true } : null);
-        } else {
-            setMessage(`Direct hit on an enemy vessel!`);
         }
+        
+        const newHits = [...hitShip.hits, targetCoords];
+        const sunk = newHits.length === hitShip.placements.length;
+        
+        if (sunk) {
+          shotMessage = `Critical hit! Enemy ${hitShip.name} has been sunk!`;
+        }
+        
+        setMessage(shotMessage);
         
         const updatedShips = gameState.opponentShips.map(s => {
             if (s.id === hitShip!.id) {
-                const newHits = [...s.hits, targetCoords];
-                const sunk = newHits.length === s.placements.length;
-                if(sunk) setMessage(`Success! Enemy ${hitShip.name} has been sunk!`);
                 return { ...s, hits: newHits, sunk };
             }
             return s;
         });
-        setGameState(gs => gs ? { ...gs, opponentShips: updatedShips, playerShots: [...gs.playerShots, targetCoords], turn: nextTurn } : null);
+        
+        setGameState(gs => gs ? { 
+          ...gs, 
+          opponentShips: updatedShips, 
+          playerShots: [...gs.playerShots, targetCoords], 
+          turn: nextTurn 
+        } : null);
     } else {
-        setMessage('Our shot landed in the water. Miss!');
-        setGameState(gs => gs ? { ...gs, playerShots: [...gs.playerShots, targetCoords], turn: 'opponent' } : null);
+        setMessage('Shot missed! Enemy vessel evaded.');
+        setGameState(gs => gs ? { 
+          ...gs, 
+          playerShots: [...gs.playerShots, targetCoords], 
+          turn: 'opponent' 
+        } : null);
     }
   };
   
@@ -346,29 +466,49 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
   const handleVolleyFire = (col: number) => {
     if (!gameState || !isVolleying) return;
     
+    // Validate column
+    if (col < 0 || col >= GRID_SIZE) {
+      setMessage('Invalid column selected for volley fire.');
+      return;
+    }
+    
     const shotsInColumn: Coordinates[] = Array.from({length: GRID_SIZE}, (_, row) => ({row, col}));
-    const newPlayerShots = [...gameState.playerShots, ...shotsInColumn];
+    const validShots = shotsInColumn.filter(shot => 
+      !gameState.playerShots.some(existingShot => 
+        existingShot.row === shot.row && existingShot.col === shot.col
+      )
+    );
+    
+    if (validShots.length === 0) {
+      setMessage('All targets in this column have already been fired upon!');
+      return;
+    }
+    
+    const newPlayerShots = [...gameState.playerShots, ...validShots];
     let firstHitFound = false;
-    let hitMessage = 'Volley fire missed!';
+    let hitMessage = 'Volley fire - all shots missed!';
+    let hitShip: Ship | undefined;
 
     const updatedShips = gameState.opponentShips.map(ship => {
         let shipWasHitThisVolley = false;
         const newHits = [...ship.hits];
-        shotsInColumn.forEach(shot => {
+        
+        validShots.forEach(shot => {
             const isAlreadyHit = ship.hits.some(h => h.row === shot.row && h.col === shot.col);
-            if (!isAlreadyHit && ship.placements.some(p => p.row === shot.row && p.col === shot.col)) {
-                if (!firstHitFound) {
-                    newHits.push(shot);
-                    firstHitFound = true;
-                    shipWasHitThisVolley = true;
-                }
+            const isShipAtLocation = ship.placements.some(p => p.row === shot.row && p.col === shot.col);
+            
+            if (!isAlreadyHit && isShipAtLocation && !firstHitFound) {
+                newHits.push(shot);
+                firstHitFound = true;
+                shipWasHitThisVolley = true;
+                hitShip = ship;
             }
         });
 
         if (shipWasHitThisVolley) {
             const sunk = newHits.length === ship.placements.length;
-            hitMessage = `Volley connected with an enemy ${ship.name}!`;
-            if (sunk) hitMessage = `Volley obliterated the enemy ${ship.name}!`;
+            hitMessage = `Volley fire connected with enemy ${ship.name}!`;
+            if (sunk) hitMessage = `Volley fire obliterated the enemy ${ship.name}!`;
             return { ...ship, hits: newHits, sunk };
         }
         return ship;

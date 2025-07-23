@@ -1,0 +1,36 @@
+[features]
+seeds = false
+skip-lint = false
+
+[programs.localnet]
+battle_sol_contracts = "BattLeSoLGaMeSmArTcOnTrAcTsPrOvAbLyFaIr111111"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "Localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+
+[test]
+startup_wait = 5000
+shutdown_wait = 2000
+upgradeable = false
+
+[[test.genesis]]
+address = "BattLeSoLGaMeSmArTcOnTrAcTsPrOvAbLyFaIr111111"
+program = "./target/deploy/battle_sol_contracts.so"
+
+[test.validator]
+url = "https://api.devnet.solana.com"
+commitment = "processed"
+ledger = ".anchor/test-ledger"
+bind_address = "0.0.0.0"
+rpc_port = 8899
+websocket_port = 8900
+startup_wait = 5000
+shutdown_wait = 2000
+limit_ledger_size = 10000000

@@ -6,22 +6,22 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
-import type { Wallet, GameState, GameMode, Nft, View } from './types';
-import { initializeUserProfile, initializeGuestProfile } from './services/solanaService';
-import { getRankDetails, calculateExpGain, calculateRakeback } from './services/rankService';
-import { getMatchFee, NFT_USAGE_FEE } from './services/feeService';
-import Header from './components/Header';
-import Dashboard from './components/Dashboard';
-import GameView from './components/GameView';
-import NftStore, { AVAILABLE_NFTS } from './components/NftStore';
-import Footer from './components/Footer';
-import LandingPage from './components/LandingPage';
-import DepositView from './components/DepositView';
-import WithdrawView from './components/WithdrawView';
-import ProfileView from './components/ProfileView';
-import GameOverModal from './components/GameOverModal';
-import ProvablyFairView from './components/ProvablyFairView';
-import PresaleView from './components/PresaleView';
+import type { Wallet, GameState, GameMode, Nft, View } from './battle-solofficial/types';
+import { initializeUserProfile, initializeGuestProfile } from './battle-solofficial/services/solanaService';
+import { getRankDetails, calculateExpGain, calculateRakeback } from './battle-solofficial/services/rankService';
+import { getMatchFee, NFT_USAGE_FEE } from './battle-solofficial/services/feeService';
+import Header from './battle-solofficial/components/Header';
+import Dashboard from './battle-solofficial/components/Dashboard';
+import GameView from './battle-solofficial/components/GameView';
+import NftStore, { AVAILABLE_NFTS } from './battle-solofficial/components/NftStore';
+import Footer from './battle-solofficial/components/Footer';
+import LandingPage from './battle-solofficial/components/LandingPage';
+import DepositView from './battle-solofficial/components/DepositView';
+import WithdrawView from './battle-solofficial/components/WithdrawView';
+import ProfileView from './battle-solofficial/components/ProfileView';
+import GameOverModal from './battle-solofficial/components/GameOverModal';
+import ProvablyFairView from './battle-solofficial/components/ProvablyFairView';
+import PresaleView from './battle-solofficial/components/PresaleView';
 
 const App: React.FC = () => {
   const [wallet, setWallet] = useState<Wallet | null>(null);
