@@ -1,7 +1,7 @@
 
 
 import React, { useState, useEffect, useCallback } from 'react';
-import type { GameState, Ship, Coordinates, Advantage, Wallet } from '../types';
+import type { GameState, Ship, Coordinates, Advantage, Wallet, ShotResult } from '../types';
 import { SHIP_CONFIG, GRID_SIZE } from '../types';
 import GameBoard from './GameBoard';
 import { getAiMove } from '../services/geminiService';
@@ -9,6 +9,7 @@ import { TargetIcon, ZapIcon, RadarIcon, UsersIcon, VolleyIcon, EMPIcon, Diamond
 import TurnSwitchScreen from './TurnSwitchScreen';
 import FleetStatus from './FleetStatus';
 import SiteWideChat from './SiteWideChat';
+import ShotResultModal from './ShotResultModal';
 
 
 interface AdvantageControlProps {
@@ -101,6 +102,19 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
   const [isVolleying, setIsVolleying] = useState(false);
   const [revealedCells, setRevealedCells] = useState<Coordinates[]>([]);
   const [isAiThinking, setIsAiThinking] = useState(false);
+  
+  // New state for shot result animations
+  const [shotResult, setShotResult] = useState<{
+    isVisible: boolean;
+    result: ShotResult | null;
+    shipName?: string;
+    isPlayerShot: boolean;
+  }>({
+    isVisible: false,
+    result: null,
+    shipName: undefined,
+    isPlayerShot: false
+  });
 
 
   const isPvp = gameState.mode === 'Online PvP (Simulated)';
@@ -268,10 +282,29 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
 
           if (wasReinforcedHit && (newExtraHealth || 0) > 0) {
                setMessage(`Enemy hit our Reinforced ${hitShip.name}, but it holds! (${newExtraHealth} extra health remaining)`);
+               // Show hit animation for reinforced hull
+               setShotResult({
+                 isVisible: true,
+                 result: 'hit',
+                 isPlayerShot: false
+               });
           } else if (sunk) {
               setMessage(`Enemy sunk our ${hitShip.name}!`);
+              // Show sunk animation
+              setShotResult({
+                isVisible: true,
+                result: 'sunk',
+                shipName: hitShip.name,
+                isPlayerShot: false
+              });
           } else {
               setMessage(`Enemy hit our ${hitShip.name}!`);
+              // Show hit animation
+              setShotResult({
+                isVisible: true,
+                result: 'hit',
+                isPlayerShot: false
+              });
           }
           
           setGameState(gs => gs ? { 
@@ -283,6 +316,13 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
 
       } else {
         setMessage('Enemy shot missed!');
+        // Show miss animation
+        setShotResult({
+          isVisible: true,
+          result: 'miss',
+          isPlayerShot: false
+        });
+        
         setGameState(gs => gs ? { 
           ...gs, 
           opponentShots: [...gs.opponentShots, aiMove], 
@@ -379,6 +419,20 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
         
         if (sunk) {
           shotMessage = `Critical hit! Enemy ${hitShip.name} has been sunk!`;
+          // Show sunk animation
+          setShotResult({
+            isVisible: true,
+            result: 'sunk',
+            shipName: hitShip.name,
+            isPlayerShot: true
+          });
+        } else {
+          // Show hit animation
+          setShotResult({
+            isVisible: true,
+            result: 'hit',
+            isPlayerShot: true
+          });
         }
         
         setMessage(shotMessage);
@@ -398,6 +452,13 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
         } : null);
     } else {
         setMessage('Shot missed! Enemy vessel evaded.');
+        // Show miss animation
+        setShotResult({
+          isVisible: true,
+          result: 'miss',
+          isPlayerShot: true
+        });
+        
         setGameState(gs => gs ? { 
           ...gs, 
           playerShots: [...gs.playerShots, targetCoords], 
@@ -617,6 +678,20 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
       <div className="w-full xl:w-[380px] xl:max-w-[380px] flex-shrink-0 sticky top-24">
         <SiteWideChat wallet={wallet} />
       </div>
+      
+      {/* Shot Result Modal */}
+      <ShotResultModal
+        isVisible={shotResult.isVisible}
+        result={shotResult.result}
+        shipName={shotResult.shipName}
+        isPlayerShot={shotResult.isPlayerShot}
+        onClose={() => setShotResult({
+          isVisible: false,
+          result: null,
+          shipName: undefined,
+          isPlayerShot: false
+        })}
+      />
     </div>
   );
 };
