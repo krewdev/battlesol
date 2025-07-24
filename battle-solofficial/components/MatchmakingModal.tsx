@@ -4,6 +4,22 @@ import React, { useState, useEffect } from 'react';
 import type { GameMode, Nft, Wallet } from '../types';
 import { getMatchFee, NFT_USAGE_FEE } from '../services/feeService';
 import { DiamondIcon, CheckCircleIcon, PlusIcon, ClockIcon, UsersIcon } from './Icons';
+import { 
+  getAvailableMatches, 
+  createMultiplayerMatch, 
+  joinMultiplayerMatch, 
+  subscribeToMatches, 
+  unsubscribeFromMatches,
+  type MultiplayerMatch 
+} from '../services/multiplayerService';
+import { 
+  createBetaTester, 
+  getBetaMatches, 
+  createBetaMatch, 
+  joinBetaMatch,
+  getBetaInstructions,
+  type BetaTestingWallet 
+} from '../services/betaTestingService';
 
 interface MatchmakingModalProps {
   mode: GameMode;
@@ -13,41 +29,9 @@ interface MatchmakingModalProps {
   wallet: Wallet;
 }
 
-interface CustomMatch {
-  id: string;
-  creator: string;
-  wager: number;
-  timeCreated: number;
-  nftAdvantage?: string;
-}
-
 const WAGER_AMOUNTS = [5, 10, 25, 50, 100, 250];
 const MIN_CUSTOM_WAGER = 0.1;
 const MAX_CUSTOM_WAGER = 100000;
-
-// Mock match queue - in real implementation this would come from a backend
-const mockMatchQueue: CustomMatch[] = [
-  {
-    id: '1',
-    creator: 'Admiral_Steel',
-    wager: 15,
-    timeCreated: Date.now() - 120000, // 2 minutes ago
-    nftAdvantage: 'Radar Scan'
-  },
-  {
-    id: '2', 
-    creator: 'CaptainThunder',
-    wager: 75,
-    timeCreated: Date.now() - 300000, // 5 minutes ago
-  },
-  {
-    id: '3',
-    creator: 'NavalCommander',
-    wager: 200,
-    timeCreated: Date.now() - 60000, // 1 minute ago
-    nftAdvantage: 'Ghost Shield'
-  }
-];
 
 const NftSelectionCard: React.FC<{ nft: Nft, isSelected: boolean, onSelect: () => void }> = ({ nft, isSelected, onSelect }) => {
     return (
@@ -71,41 +55,60 @@ const MatchmakingModal: React.FC<MatchmakingModalProps> = ({ mode, onClose, onSt
   const [selectedNftId, setSelectedNftId] = useState<string | null>(null);
   const [isCustomWager, setIsCustomWager] = useState(false);
   const [customWagerAmount, setCustomWagerAmount] = useState<string>('');
-  const [matchQueue, setMatchQueue] = useState<CustomMatch[]>(mockMatchQueue);
+  const [matchQueue, setMatchQueue] = useState<MultiplayerMatch[]>([]);
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
+  const [isBetaMode, setIsBetaMode] = useState(false);
+  const [betaTester, setBetaTester] = useState<BetaTestingWallet | null>(null);
+  const [showBetaInstructions, setShowBetaInstructions] = useState(false);
 
   const isGuest = wallet.isGuest;
   const isPvP = mode === 'Online PvP (Simulated)';
 
-  // Update match queue periodically (simulate real-time updates)
+  // Initialize beta testing or live mode
+  useEffect(() => {
+    if (isPvP) {
+      // Check if user wants beta testing (for now, default to beta for easier testing)
+      const shouldUseBeta = true; // In production, this would be a user choice
+      
+      if (shouldUseBeta) {
+        setIsBetaMode(true);
+        const tester = createBetaTester(wallet);
+        setBetaTester(tester);
+        setMatchQueue(getBetaMatches());
+      } else {
+        setIsBetaMode(false);
+        setMatchQueue(getAvailableMatches());
+        
+        // Subscribe to real-time match updates
+        subscribeToMatches(wallet.address, (message) => {
+          if (message.type === 'match_created' || message.type === 'match_cancelled') {
+            setMatchQueue(getAvailableMatches());
+          }
+        });
+      }
+    }
+
+    return () => {
+      if (isPvP && !isBetaMode) {
+        unsubscribeFromMatches(wallet.address);
+      }
+    };
+  }, [isPvP, wallet.address]);
+
+  // Update match queue periodically
   useEffect(() => {
     if (!isPvP) return;
     
     const interval = setInterval(() => {
-      // Simulate matches being created/removed
-      setMatchQueue(prev => {
-        const updated = [...prev];
-        // Randomly remove old matches (simulate them being taken)
-        if (Math.random() > 0.7 && updated.length > 1) {
-          updated.splice(Math.floor(Math.random() * updated.length), 1);
-        }
-        // Occasionally add new matches
-        if (Math.random() > 0.8 && updated.length < 5) {
-          const newMatch: CustomMatch = {
-            id: `match_${Date.now()}`,
-            creator: `Player_${Math.floor(Math.random() * 1000)}`,
-            wager: [10, 25, 50, 100][Math.floor(Math.random() * 4)],
-            timeCreated: Date.now(),
-            nftAdvantage: Math.random() > 0.6 ? ['Radar Scan', 'Ghost Shield', 'Volley Fire'][Math.floor(Math.random() * 3)] : undefined
-          };
-          updated.push(newMatch);
-        }
-        return updated;
-      });
-    }, 3000);
+      if (isBetaMode) {
+        setMatchQueue(getBetaMatches());
+      } else {
+        setMatchQueue(getAvailableMatches());
+      }
+    }, 2000);
 
     return () => clearInterval(interval);
-  }, [isPvP]);
+  }, [isPvP, isBetaMode]);
 
   const handleStart = () => {
     const selectedNft = ownedNfts.find(nft => nft.id === selectedNftId) || null;
@@ -115,11 +118,28 @@ const MatchmakingModal: React.FC<MatchmakingModalProps> = ({ mode, onClose, onSt
       effectiveWager = parseFloat(customWagerAmount);
     }
     
+    // Create match in multiplayer service
+    if (isPvP) {
+      if (isBetaMode && betaTester) {
+        createBetaMatch(betaTester, effectiveWager);
+      } else {
+        createMultiplayerMatch(wallet, effectiveWager, selectedNft?.name);
+      }
+    }
+    
     onStartGame(mode, effectiveWager, selectedNft);
   };
 
-  const handleJoinMatch = (match: CustomMatch) => {
+  const handleJoinMatch = (match: MultiplayerMatch) => {
     const selectedNft = ownedNfts.find(nft => nft.id === selectedNftId) || null;
+    
+    // Join match in multiplayer service
+    if (isBetaMode && betaTester) {
+      joinBetaMatch(match.id, betaTester);
+    } else {
+      joinMultiplayerMatch(match.id, wallet);
+    }
+    
     onStartGame(mode, match.wager, selectedNft);
   };
   
@@ -141,6 +161,14 @@ const MatchmakingModal: React.FC<MatchmakingModalProps> = ({ mode, onClose, onSt
     return `${minutes} mins ago`;
   };
 
+  const getMatchCreatorName = (match: MultiplayerMatch) => {
+    return match.creator.username;
+  };
+
+  const getMatchNftAdvantage = (match: MultiplayerMatch) => {
+    return match.nftAdvantage;
+  };
+
   const renderContent = () => {
     if (step === 1) { // Wager selection
       return (
@@ -155,42 +183,45 @@ const MatchmakingModal: React.FC<MatchmakingModalProps> = ({ mode, onClose, onSt
                 <UsersIcon className="w-5 h-5" />
                 Available Matches
               </h4>
-              <div className="max-h-48 overflow-y-auto space-y-2 mb-6">
-                {matchQueue.length > 0 ? (
-                  matchQueue.map(match => (
-                    <div
-                      key={match.id}
-                      onClick={() => setSelectedMatchId(match.id)}
-                      className={`match-queue-item p-4 rounded-lg cursor-pointer ${
-                        selectedMatchId === match.id ? 'border-cyan-glow shadow-cyan' : ''
-                      }`}
-                    >
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <div className="font-bold text-white">{match.creator}</div>
-                          <div className="text-sm text-neutral-400 flex items-center gap-2">
-                            <ClockIcon className="w-4 h-4" />
-                            {formatTimeAgo(match.timeCreated)}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-bold text-yellow-glow flex items-center gap-1">
-                            <DiamondIcon className="w-4 h-4" />
-                            {match.wager}
-                          </div>
-                          {match.nftAdvantage && (
-                            <div className="text-xs text-cyan-400">{match.nftAdvantage}</div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center p-6 bg-navy-900/50 rounded-lg">
-                    <p className="text-neutral-400">No matches available. Create your own!</p>
-                  </div>
-                )}
-              </div>
+                             <div className="max-h-48 overflow-y-auto space-y-2 mb-6">
+                 {matchQueue.length > 0 ? (
+                   matchQueue.map(match => (
+                     <div
+                       key={match.id}
+                       onClick={() => setSelectedMatchId(match.id)}
+                       className={`match-queue-item p-4 rounded-lg cursor-pointer ${
+                         selectedMatchId === match.id ? 'border-cyan-glow shadow-cyan' : ''
+                       }`}
+                     >
+                       <div className="flex justify-between items-center">
+                         <div>
+                           <div className="font-bold text-white">{getMatchCreatorName(match)}</div>
+                           <div className="text-sm text-neutral-400 flex items-center gap-2">
+                             <ClockIcon className="w-4 h-4" />
+                             {formatTimeAgo(match.createdAt)}
+                             {isBetaMode && <span className="text-xs bg-green-600 px-2 py-1 rounded">BETA</span>}
+                           </div>
+                         </div>
+                         <div className="text-right">
+                           <div className="font-bold text-yellow-glow flex items-center gap-1">
+                             <DiamondIcon className="w-4 h-4" />
+                             {match.wager}
+                           </div>
+                           {getMatchNftAdvantage(match) && (
+                             <div className="text-xs text-cyan-400">{getMatchNftAdvantage(match)}</div>
+                           )}
+                         </div>
+                       </div>
+                     </div>
+                   ))
+                 ) : (
+                   <div className="text-center p-6 bg-navy-900/50 rounded-lg">
+                     <p className="text-neutral-400">
+                       {isBetaMode ? 'No beta matches available. Create your own!' : 'No matches available. Create your own!'}
+                     </p>
+                   </div>
+                 )}
+               </div>
               
               <div className="border-t border-navy-700 pt-6">
                 <h4 className="text-lg font-bold text-white mb-4">Create New Match</h4>
@@ -364,6 +395,53 @@ const MatchmakingModal: React.FC<MatchmakingModalProps> = ({ mode, onClose, onSt
         <div className="p-6 border-b border-navy-700">
           <h2 className="text-2xl font-orbitron font-bold text-white uppercase text-center">{mode}</h2>
           <p className="text-center text-neutral-400 text-sm">Prepare for deployment</p>
+          
+          {isPvP && (
+            <div className="mt-4 flex items-center justify-center gap-4">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="betaMode"
+                  checked={isBetaMode}
+                  onChange={(e) => {
+                    setIsBetaMode(e.target.checked);
+                    if (e.target.checked) {
+                      const tester = createBetaTester(wallet);
+                      setBetaTester(tester);
+                      setMatchQueue(getBetaMatches());
+                    } else {
+                      setBetaTester(null);
+                      setMatchQueue(getAvailableMatches());
+                    }
+                  }}
+                  className="w-4 h-4 text-green-600 bg-navy-700 border-navy-600 rounded focus:ring-green-500"
+                />
+                <label htmlFor="betaMode" className="text-sm text-white">
+                  🧪 Beta Testing Mode (Free Play)
+                </label>
+              </div>
+              
+              {isBetaMode && (
+                <button
+                  onClick={() => setShowBetaInstructions(!showBetaInstructions)}
+                  className="text-xs text-cyan-400 hover:text-cyan-300 underline"
+                >
+                  What's this?
+                </button>
+              )}
+            </div>
+          )}
+          
+          {showBetaInstructions && (
+            <div className="mt-4 p-4 bg-green-900/20 border border-green-600 rounded-lg">
+              <h4 className="font-bold text-green-400 mb-2">🧪 Beta Testing Mode</h4>
+              <ul className="text-xs text-green-300 space-y-1">
+                {getBetaInstructions().map((instruction, index) => (
+                  <li key={index}>{instruction}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
 
         <div className="p-8 flex-grow">
