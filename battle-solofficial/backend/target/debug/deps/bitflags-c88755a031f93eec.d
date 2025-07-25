@@ -1,0 +1,12 @@
+/workspace/battle-solofficial/backend/target/debug/deps/libbitflags-c88755a031f93eec.rmeta: /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/bitflags-2.9.1/src/lib.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/bitflags-2.9.1/src/iter.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/bitflags-2.9.1/src/parser.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/bitflags-2.9.1/src/traits.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/bitflags-2.9.1/src/public.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/bitflags-2.9.1/src/internal.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/bitflags-2.9.1/src/external.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/bitflags-2.9.1/src/external/serde.rs
+
+/workspace/battle-solofficial/backend/target/debug/deps/bitflags-c88755a031f93eec.d: /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/bitflags-2.9.1/src/lib.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/bitflags-2.9.1/src/iter.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/bitflags-2.9.1/src/parser.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/bitflags-2.9.1/src/traits.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/bitflags-2.9.1/src/public.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/bitflags-2.9.1/src/internal.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/bitflags-2.9.1/src/external.rs /usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/bitflags-2.9.1/src/external/serde.rs
+
+/usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/bitflags-2.9.1/src/lib.rs:
+/usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/bitflags-2.9.1/src/iter.rs:
+/usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/bitflags-2.9.1/src/parser.rs:
+/usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/bitflags-2.9.1/src/traits.rs:
+/usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/bitflags-2.9.1/src/public.rs:
+/usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/bitflags-2.9.1/src/internal.rs:
+/usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/bitflags-2.9.1/src/external.rs:
+/usr/local/cargo/registry/src/index.crates.io-6f17d22bba15001f/bitflags-2.9.1/src/external/serde.rs:

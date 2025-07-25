@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-import { WalletContextProvider } from './components/WalletContextProvider';
+import { WalletContextProvider } from './battle-solofficial/components/WalletContextProvider';
 
 // Polyfill Buffer for Web3.js
 import { Buffer } from 'buffer';

@@ -76,24 +76,37 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
     const newShipPlacements: Coordinates[] = [];
     let isValidPlacement = true;
 
+    // Check if ship fits within grid bounds and doesn't overlap
     for (let i = 0; i < shipConfig.length; i++) {
       let newRow = row + (orientation === 'vertical' ? i : 0);
       let newCol = col + (orientation === 'horizontal' ? i : 0);
 
-      if (newRow >= GRID_SIZE || newCol >= GRID_SIZE || placingShips.some(s => s.placements.some(p => p.row === newRow && p.col === newCol))) {
+      // Check bounds
+      if (newRow >= GRID_SIZE || newCol >= GRID_SIZE) {
         isValidPlacement = false;
-        for (let j = 0; j < shipConfig.length; j++) {
-            let tempRow = row + (orientation === 'vertical' ? j : 0);
-            let tempCol = col + (orientation === 'horizontal' ? j : 0);
-            if(tempRow < GRID_SIZE && tempCol < GRID_SIZE) newShipPlacements.push({ row: tempRow, col: tempCol });
-        }
         break;
       }
+
+      // Check for overlapping with existing ships
+      const isOccupied = placingShips.some(s => 
+        s.placements.some(p => p.row === newRow && p.col === newCol)
+      );
+      
+      if (isOccupied) {
+        isValidPlacement = false;
+        break;
+      }
+
       newShipPlacements.push({ row: newRow, col: newCol });
     }
 
     if (isValidPlacement) {
-      const newShip: Ship = { ...shipConfig, placements: newShipPlacements, hits: [], sunk: false };
+      const newShip: Ship = { 
+        ...shipConfig, 
+        placements: newShipPlacements, 
+        hits: [], 
+        sunk: false 
+      };
       const updatedShips = [...placingShips, newShip];
       setPlacingShips(updatedShips);
       
@@ -109,8 +122,17 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
          }
       }
     } else {
-      setInvalidPlacement(newShipPlacements);
-      setTimeout(() => setInvalidPlacement([]), 300);
+      // Show invalid placement feedback
+      const invalidCells: Coordinates[] = [];
+      for (let i = 0; i < shipConfig.length; i++) {
+        let tempRow = row + (orientation === 'vertical' ? i : 0);
+        let tempCol = col + (orientation === 'horizontal' ? i : 0);
+        if (tempRow < GRID_SIZE && tempCol < GRID_SIZE) {
+          invalidCells.push({ row: tempRow, col: tempCol });
+        }
+      }
+      setInvalidPlacement(invalidCells);
+      setTimeout(() => setInvalidPlacement([]), 500); // Increased duration for better visibility
     }
   };
 
@@ -203,24 +225,69 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
 
   const getCellStyling = (row: number, col: number) => {
     if (invalidPlacement.some(p => p.row === row && p.col === col)) {
-        return 'bg-red-500/50 scale-105 z-10';
+        return 'bg-red-500/70 scale-105 z-10 animate-pulse border-red-400';
     }
 
     const shipOnCell = shipsToDisplay.find(ship => ship.placements.some(p => p.row === row && p.col === col));
+    
+    // Show sunk ships with different styling
     if (isPlayerBoard && shipOnCell?.sunk) {
-      return 'bg-neutral-900/80 brightness-50';
+      return 'bg-red-900/80 brightness-50 border-red-600';
     }
     
+    // Show decoy position
     if(isPlayerBoard && gameState.decoyPosition?.row === row && gameState.decoyPosition?.col === col) {
-        return 'bg-cyan-900/50';
+        return 'bg-cyan-900/50 border-cyan-400';
     }
 
+    // Show revealed cells from radar scan
     const isRevealed = revealedCells?.some(c => c.row === row && c.col === col);
     if(isRevealed && !shotsToDisplay.some(s => s.row === row && s.col === col)) {
-      return 'bg-cyan-500/20 animate-scan';
+      return 'bg-cyan-500/30 animate-pulse border-cyan-300';
     }
     
-    return 'bg-navy-700/30 hover:bg-navy-700/60';
+    // Show ship placement preview during placement phase
+    if (isPlayerBoard && gameState.status === 'placing_ships' && !isPlacingDecoy && currentShipIndex < SHIP_CONFIG.length) {
+      const shipConfig = SHIP_CONFIG[currentShipIndex];
+      const isPreviewCell = isShipPreviewCell(row, col, shipConfig);
+      if (isPreviewCell.isPreview) {
+        return isPreviewCell.isValid ? 
+          'bg-green-500/30 border-green-400 hover:bg-green-500/50' : 
+          'bg-red-500/30 border-red-400 hover:bg-red-500/50';
+      }
+    }
+    
+    return 'bg-navy-700/30 hover:bg-navy-700/60 border-navy-600/50';
+  };
+
+  // Helper function to determine if a cell is part of ship placement preview
+  const isShipPreviewCell = (row: number, col: number, shipConfig: typeof SHIP_CONFIG[0]) => {
+    if (!hoveredCell || hoveredCell.row !== row || hoveredCell.col !== col) {
+      return { isPreview: false, isValid: false };
+    }
+
+    // Check if ship would fit at this position
+    let isValid = true;
+    for (let i = 0; i < shipConfig.length; i++) {
+      let checkRow = row + (orientation === 'vertical' ? i : 0);
+      let checkCol = col + (orientation === 'horizontal' ? i : 0);
+
+      if (checkRow >= GRID_SIZE || checkCol >= GRID_SIZE) {
+        isValid = false;
+        break;
+      }
+
+      const isOccupied = placingShips.some(s => 
+        s.placements.some(p => p.row === checkRow && p.col === checkCol)
+      );
+      
+      if (isOccupied) {
+        isValid = false;
+        break;
+      }
+    }
+
+    return { isPreview: true, isValid };
   };
 
   return (
