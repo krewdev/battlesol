@@ -301,6 +301,15 @@ const App: React.FC = () => {
         const reward = 500;
         setWallet(w => w ? {...w, gems: w.gems + reward, gemsWon: w.gemsWon + reward } : null);
         alert(`Code redeemed! You received ${reward} Gems!`);
+    } else if (code === 'test') {
+        const reward = 1;
+        const lockRequirement = 5;
+        setWallet(w => w ? {
+            ...w,
+            lockedGems: w.lockedGems + reward,
+            wagerRequirement: w.wagerRequirement + lockRequirement
+        } : null);
+        alert(`Daily code redeemed! You received ${reward} locked Gem. Wager ${lockRequirement} Gems to unlock.`);
     } else {
         alert('Invalid or expired code.');
     }

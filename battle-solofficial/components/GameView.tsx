@@ -474,7 +474,31 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
       }));
 
       if (isPvp) {
-         // PvP placement logic remains
+         // First placement belongs to Player 1 (turn === 'player')
+         if (gameState.playerShips.length === 0) {
+             // Save Player 1 fleet and hand device to Player 2
+             setGameState(gs => gs ? {
+                 ...gs,
+                 playerShips: shipsWithHealth,
+                 decoyPosition: decoy || null,
+                 status: 'transition',
+                 turn: 'opponent',
+                 transitionMessage: 'Player 2, prepare to place your fleet.'
+             } : null);
+             return;
+         }
+
+         // Second placement belongs to Player 2
+         if (gameState.opponentShips.length === 0) {
+             setGameState(gs => gs ? {
+                 ...gs,
+                 opponentShips: shipsWithHealth,
+                 status: 'transition',
+                 turn: 'player',
+                 transitionMessage: 'All fleets deployed. Player 1 takes the first shot.'
+             } : null);
+             return;
+         }
       } else { // PvE
         const opponentShips = placeOpponentShips();
         setGameState(gs => gs ? { 

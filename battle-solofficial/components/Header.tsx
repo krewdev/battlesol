@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import type { Wallet, View } from '../types';
 import { getRankDetails } from '../services/rankService';
-import { DiamondIcon, UserCircleIcon, RANK_ICONS, XMarkIcon, LogoIcon } from './Icons';
+import { DiamondIcon, UserCircleIcon, RANK_ICONS, XMarkIcon, LogoIcon, MenuIcon } from './Icons';
 
 interface HeaderProps {
   wallet: Wallet;
@@ -14,6 +14,7 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ wallet, onNavigate, onDisconnect }) => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const rankDetails = getRankDetails(wallet.rank);
@@ -51,6 +52,7 @@ const Header: React.FC<HeaderProps> = ({ wallet, onNavigate, onDisconnect }) => 
           </h1>
         </div>
         
+        {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center space-x-6">
             <button onClick={() => onNavigate('dashboard')} className="text-neutral-300 hover:text-cyan-glow font-semibold transition-colors duration-200">Dashboard</button>
             <button onClick={() => onNavigate('presale')} className="text-yellow-glow hover:text-white font-bold transition-colors duration-200 animate-pulse">Presale</button>
@@ -60,6 +62,14 @@ const Header: React.FC<HeaderProps> = ({ wallet, onNavigate, onDisconnect }) => 
             <button onClick={() => onNavigate('provably_fair')} className="text-neutral-300 hover:text-cyan-glow font-semibold transition-colors duration-200">Provably Fair</button>
         </nav>
         
+        {/* Mobile hamburger */}
+        <button
+          className="md:hidden p-2 rounded-lg hover:bg-navy-700/70 focus:outline-none"
+          onClick={() => setIsMobileMenuOpen(prev => !prev)}
+        >
+          {isMobileMenuOpen ? <XMarkIcon className="w-6 h-6 text-white"/> : <MenuIcon className="w-6 h-6 text-white"/>}
+        </button>
+
         <div className="flex items-center gap-4">
             <div className="relative" ref={dropdownRef}>
                 <button onClick={() => setIsProfileOpen(prev => !prev)} className="flex items-center gap-3 bg-navy-700/80 rounded-lg p-2 border border-navy-700 hover:border-cyan-glow/50 transition-colors">
@@ -120,6 +130,18 @@ const Header: React.FC<HeaderProps> = ({ wallet, onNavigate, onDisconnect }) => 
              )}
         </div>
       </div>
+
+      {/* Mobile Navigation Panel */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden bg-navy-800 border-t border-navy-700 px-4 py-4 space-y-2 animate-fade-in-down">
+          <button onClick={() => { handleNavigation('dashboard'); setIsMobileMenuOpen(false); }} className="block w-full text-left text-neutral-300 hover:text-cyan-glow font-semibold">Dashboard</button>
+          <button onClick={() => { handleNavigation('presale'); setIsMobileMenuOpen(false); }} className="block w-full text-left text-yellow-glow hover:text-white font-bold">Presale</button>
+          <button onClick={() => { handleNavigation('nft_store'); setIsMobileMenuOpen(false); }} className="block w-full text-left text-neutral-300 hover:text-cyan-glow font-semibold">NFT Armory</button>
+          <button onClick={() => { handleNavigation('deposit'); setIsMobileMenuOpen(false); }} className="block w-full text-left text-neutral-300 hover:text-cyan-glow font-semibold">Deposit</button>
+          <button onClick={() => { handleNavigation('withdraw'); setIsMobileMenuOpen(false); }} className="block w-full text-left text-neutral-300 hover:text-cyan-glow font-semibold">Withdraw</button>
+          <button onClick={() => { handleNavigation('provably_fair'); setIsMobileMenuOpen(false); }} className="block w-full text-left text-neutral-300 hover:text-cyan-glow font-semibold">Provably Fair</button>
+        </div>
+      )}
     </header>
   );
 };

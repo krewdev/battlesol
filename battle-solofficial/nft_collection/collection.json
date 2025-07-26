@@ -1,0 +1,54 @@
+[
+  {
+    "name": "Aegis Satellite Scan",
+    "symbol": "BTSOL",
+    "description": "Use your turn to reveal a 2x2 area on the enemy grid, exposing what lies beneath.",
+    "image": "ipfs://REPLACE_WITH_CID/aegis.png",
+    "attributes": [
+      { "trait_type": "Advantage", "value": "Active" },
+      { "trait_type": "Ability", "value": "radar_scan" }
+    ],
+    "seller_fee_basis_points": 500,
+    "collection": { "name": "Battle-Sol Tactical Upgrades", "family": "Battle-Sol" },
+    "properties": {
+      "files": [{ "uri": "ipfs://REPLACE_WITH_CID/aegis.png", "type": "image/png" }],
+      "category": "image",
+      "creators": [{ "address": "11111111111111111111111111111112", "share": 100 }]
+    }
+  },
+  {
+    "name": "Rapid Fire Protocol",
+    "symbol": "BTSOL",
+    "description": "After you successfully land a hit, you are granted an immediate second shot.",
+    "image": "ipfs://REPLACE_WITH_CID/rapid.png",
+    "attributes": [
+      { "trait_type": "Advantage", "value": "Passive" },
+      { "trait_type": "Ability", "value": "extra_shot" }
+    ],
+    "seller_fee_basis_points": 500,
+    "collection": { "name": "Battle-Sol Tactical Upgrades", "family": "Battle-Sol" },
+    "properties": {
+      "files": [{ "uri": "ipfs://REPLACE_WITH_CID/rapid.png", "type": "image/png" }],
+      "category": "image",
+      "creators": [{ "address": "11111111111111111111111111111112", "share": 100 }]
+    }
+  },
+  {
+    "name": "Ghost Shield",
+    "symbol": "BTSOL",
+    "description": "The first shot fired by your opponent in the match is guaranteed to be a miss.",
+    "image": "ipfs://REPLACE_WITH_CID/ghost.png",
+    "attributes": [
+      { "trait_type": "Advantage", "value": "Passive" },
+      { "trait_type": "Ability", "value": "ghost_shield" }
+    ],
+    "seller_fee_basis_points": 500,
+    "collection": { "name": "Battle-Sol Tactical Upgrades", "family": "Battle-Sol" },
+    "properties": {
+      "files": [{ "uri": "ipfs://REPLACE_WITH_CID/ghost.png", "type": "image/png" }],
+      "category": "image",
+      "creators": [{ "address": "11111111111111111111111111111112", "share": 100 }]
+    }
+  }
+  // ... repeat for remaining 7 NFTs ...
+]
