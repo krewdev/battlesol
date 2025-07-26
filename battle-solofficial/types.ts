@@ -96,7 +96,6 @@ export interface GameState {
   aiHuntQueue: Coordinates[];
   // NFT-specific state
   reinforcedShipId: number | null;
-  decoyPosition: Coordinates | null;
   isPlayerAdvantageDisabled: boolean;
   isOpponentAdvantageDisabled: boolean;
   isVolleying: boolean;

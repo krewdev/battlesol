@@ -75,7 +75,7 @@ const App: React.FC = () => {
             mode: 'Player vs AI',
             wager: 0,
             advantage: selectedNft?.advantage || null,
-            playerShips: [], opponentShips: [], playerShots: [], opponentShots: [], status: 'placing_ships', turn: 'player', winner: null, advantageUsed: false, transitionMessage: '', playerNftSkinUrl: null, hoveredCell: null, aiMode: 'searching', aiHuntQueue: [], reinforcedShipId: null, decoyPosition: null, isPlayerAdvantageDisabled: false, isOpponentAdvantageDisabled: false, isVolleying: false, playerDecoys: [], opponentDecoys: [], playerDecoysRemaining: 2, opponentDecoysRemaining: 2, playerTurnSkipped: false, opponentTurnSkipped: false,
+            playerShips: [], opponentShips: [], playerShots: [], opponentShots: [], status: 'placing_ships', turn: 'player', winner: null, advantageUsed: false, transitionMessage: '', playerNftSkinUrl: null, hoveredCell: null, aiMode: 'searching', aiHuntQueue: [], reinforcedShipId: null, isPlayerAdvantageDisabled: false, isOpponentAdvantageDisabled: false, isVolleying: false, playerDecoys: [], opponentDecoys: [], playerDecoysRemaining: 2, opponentDecoysRemaining: 2, playerTurnSkipped: false, opponentTurnSkipped: false,
         });
         setView('game');
         return;
@@ -129,7 +129,6 @@ const App: React.FC = () => {
       aiMode: 'searching',
       aiHuntQueue: [],
       reinforcedShipId: null,
-      decoyPosition: null,
       isPlayerAdvantageDisabled: false,
       isOpponentAdvantageDisabled: false,
       isVolleying: false,
@@ -357,7 +356,6 @@ const App: React.FC = () => {
       aiMode: 'searching',
       aiHuntQueue: [],
       reinforcedShipId: null,
-      decoyPosition: null,
       isPlayerAdvantageDisabled: false,
       isOpponentAdvantageDisabled: false,
       isVolleying: false,

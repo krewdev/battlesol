@@ -259,10 +259,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
       return 'bg-red-900/80 brightness-50 border-red-600';
     }
     
-    // Show decoy position
-    if(isPlayerBoard && gameState.decoyPosition?.row === row && gameState.decoyPosition?.col === col) {
-        return 'bg-cyan-900/50 border-cyan-400';
-    }
+
 
     // Show revealed cells from radar scan
     const isRevealed = revealedCells?.some(c => c.row === row && c.col === col);
