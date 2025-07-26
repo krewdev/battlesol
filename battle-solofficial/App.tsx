@@ -75,7 +75,7 @@ const App: React.FC = () => {
             mode: 'Player vs AI',
             wager: 0,
             advantage: selectedNft?.advantage || null,
-            playerShips: [], opponentShips: [], playerShots: [], opponentShots: [], status: 'placing_ships', turn: 'player', winner: null, advantageUsed: false, transitionMessage: '', playerNftSkinUrl: null, hoveredCell: null, aiMode: 'searching', aiHuntQueue: [], reinforcedShipId: null, decoyPosition: null, isPlayerAdvantageDisabled: false, isOpponentAdvantageDisabled: false, isVolleying: false,
+            playerShips: [], opponentShips: [], playerShots: [], opponentShots: [], status: 'placing_ships', turn: 'player', winner: null, advantageUsed: false, transitionMessage: '', playerNftSkinUrl: null, hoveredCell: null, aiMode: 'searching', aiHuntQueue: [], reinforcedShipId: null, decoyPositionsPlayer: [], decoyPositionsOpponent: [], isPlayerAdvantageDisabled: false, isOpponentAdvantageDisabled: false, isVolleying: false,
         });
         setView('game');
         return;
@@ -129,7 +129,8 @@ const App: React.FC = () => {
       aiMode: 'searching',
       aiHuntQueue: [],
       reinforcedShipId: null,
-      decoyPosition: null,
+      decoyPositionsPlayer: [],
+      decoyPositionsOpponent: [],
       isPlayerAdvantageDisabled: false,
       isOpponentAdvantageDisabled: false,
       isVolleying: false,
@@ -163,7 +164,7 @@ const App: React.FC = () => {
 
     if (finalGameState.mode === 'Daily AI Battle' && isWin) {
       const rankDetails = getRankDetails(wallet.rank);
-      const gemReward = Math.floor(rankDetails.gemReward * 0.2);
+      const gemReward = rankDetails.gemReward;
       newLockedGems += gemReward;
       newWagerRequirement += gemReward;
       newGemsWon += gemReward;
@@ -352,7 +353,8 @@ const App: React.FC = () => {
       aiMode: 'searching',
       aiHuntQueue: [],
       reinforcedShipId: null,
-      decoyPosition: null,
+      decoyPositionsPlayer: [],
+      decoyPositionsOpponent: [],
       isPlayerAdvantageDisabled: false,
       isOpponentAdvantageDisabled: false,
       isVolleying: false,

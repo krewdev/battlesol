@@ -63,8 +63,14 @@ export type GameStatus = 'placing_ships' | 'in_progress' | 'finished' | 'transit
 export type GameMode = 'Player vs AI' | 'Online PvP (Simulated)' | 'Daily AI Battle';
 export type Turn = 'player' | 'opponent';
 
-export type ShotResult = 'hit' | 'miss' | 'sunk';
+export type ShotResult = 'hit' | 'miss' | 'sunk' | 'decoy';
 export type Advantage = 'extra_shot' | 'radar_scan' | 'ghost_shield' | 'reinforced_hull' | 'decoy_buoy' | 'volley_fire' | 'emp_blast' | 'sabotage' | 'targeting_computer' | 'salvage_crew';
+
+// New: Each side has up to 2 defensive decoy buoys per game
+export interface DecoyState {
+  player: Coordinates[]; // Remaining active player decoy positions (max 2)
+  opponent: Coordinates[]; // Remaining active opponent decoy positions (max 2)
+}
 
 export interface Nft {
   id: string;
@@ -94,9 +100,11 @@ export interface GameState {
   hoveredCell: Coordinates | null;
   aiMode: 'searching' | 'hunting';
   aiHuntQueue: Coordinates[];
-  // NFT-specific state
+  // NFT-specific & new game mechanics state
   reinforcedShipId: number | null;
-  decoyPosition: Coordinates | null;
+  // Decoy buoys for each side
+  decoyPositionsPlayer: Coordinates[];
+  decoyPositionsOpponent: Coordinates[];
   isPlayerAdvantageDisabled: boolean;
   isOpponentAdvantageDisabled: boolean;
   isVolleying: boolean;

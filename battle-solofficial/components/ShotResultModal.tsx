@@ -51,6 +51,10 @@ const ShotResultModal: React.FC<ShotResultModalProps> = ({
       sunk: {
         player: [`${shipName} DESTROYED!`, `${shipName} ELIMINATED!`, `${shipName} DOWN!`, 'VESSEL SUNK!'],
         opponent: [`YOUR ${shipName} LOST!`, `${shipName} DESTROYED!`, 'SHIP DOWN!', 'VESSEL LOST!']
+      },
+      decoy: {
+        player: ['DECOY DETONATED!', 'FALSE TARGET!', 'ENEMY TRAP!', 'TURN FORFEITED!'],
+        opponent: ['DECOY TRIGGERED!', 'FOOLED THEM!', 'ENEMY BAITED!', 'THEY WASTED A TURN!']
       }
     };
 
@@ -81,6 +85,8 @@ const ShotResultModal: React.FC<ShotResultModalProps> = ({
         return 'text-blue-400';
       case 'sunk':
         return isPlayerShot ? 'text-yellow-400' : 'text-orange-400';
+      case 'decoy':
+        return 'text-yellow-300';
       default:
         return 'text-white';
     }
@@ -94,6 +100,8 @@ const ShotResultModal: React.FC<ShotResultModalProps> = ({
         return 'bg-blue-900/50';
       case 'sunk':
         return 'bg-orange-900/70 animate-pulse';
+      case 'decoy':
+        return 'bg-yellow-900/70 animate-pulse';
       default:
         return 'bg-black/50';
     }
@@ -145,6 +153,7 @@ const ShotResultModal: React.FC<ShotResultModalProps> = ({
           {result === 'hit' && '💥 BOOM!'}
           {result === 'miss' && '💧 SPLASH!'}
           {result === 'sunk' && '🔥 EXPLOSION!'}
+          {result === 'decoy' && '🎯 DECOY!'}
         </div>
       </div>
     </div>

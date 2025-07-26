@@ -127,7 +127,8 @@ const App: React.FC = () => {
       aiMode: 'searching',
       aiHuntQueue: [],
       reinforcedShipId: null,
-      decoyPosition: null,
+      decoyPositionsPlayer: [],
+      decoyPositionsOpponent: [],
       isPlayerAdvantageDisabled: false,
       isOpponentAdvantageDisabled: false,
       isVolleying: false,
@@ -164,7 +165,7 @@ const App: React.FC = () => {
 
     if (finalGameState.mode === 'Daily AI Battle' && isWin) {
       const rankDetails = getRankDetails(wallet.rank);
-      const gemReward = Math.floor(rankDetails.gemReward * 0.2);
+      const gemReward = rankDetails.gemReward;
       newLockedGems += gemReward;
       newWagerRequirement += gemReward;
       newGemsWon += gemReward;
@@ -344,7 +345,8 @@ const App: React.FC = () => {
       aiMode: 'searching',
       aiHuntQueue: [],
       reinforcedShipId: null,
-      decoyPosition: null,
+      decoyPositionsPlayer: [],
+      decoyPositionsOpponent: [],
       isPlayerAdvantageDisabled: false,
       isOpponentAdvantageDisabled: false,
       isVolleying: false,
