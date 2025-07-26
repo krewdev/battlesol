@@ -230,14 +230,27 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
         }
       }
 
-      // Handle Decoy Buoy NFT
-      if (gameState.decoyPosition && aiMove.row === gameState.decoyPosition.row && aiMove.col === gameState.decoyPosition.col) {
-        setMessage("Success! The enemy hit our decoy buoy and wasted their turn.");
+      // Handle Decoy System
+      const isDecoyHit = gameState.playerDecoys.some(d => d.row === aiMove.row && d.col === aiMove.col);
+      if (isDecoyHit) {
+        setMessage("Success! The enemy hit our decoy and lost their turn!");
+        setShotResult({
+          isVisible: true,
+          result: 'decoy_hit',
+          isPlayerShot: false
+        });
+        
+        // Remove the hit decoy and skip AI's turn
+        const updatedDecoys = gameState.playerDecoys.filter(d => 
+          !(d.row === aiMove.row && d.col === aiMove.col)
+        );
+        
         setGameState(gs => gs ? { 
           ...gs, 
+          playerDecoys: updatedDecoys,
           opponentShots: [...gs.opponentShots, aiMove], 
-          turn: 'player', 
-          decoyPosition: null 
+          playerTurnSkipped: true,
+          turn: 'player' // Player gets another turn
         } : null);
         setIsAiThinking(false);
         return;
@@ -403,6 +416,32 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
   const processPlayerShot = (targetCoords: Coordinates, hitShip: Ship | undefined) => {
     if (!gameState) return;
 
+    // Check if player hit a decoy
+    const isDecoyHit = gameState.opponentDecoys.some(d => d.row === targetCoords.row && d.col === targetCoords.col);
+    
+    if (isDecoyHit) {
+        setMessage('Decoy hit! Enemy turn lost!');
+        setShotResult({
+          isVisible: true,
+          result: 'decoy_hit',
+          isPlayerShot: true
+        });
+        
+        // Remove the hit decoy and skip opponent's turn
+        const updatedDecoys = gameState.opponentDecoys.filter(d => 
+          !(d.row === targetCoords.row && d.col === targetCoords.col)
+        );
+        
+        setGameState(gs => gs ? { 
+          ...gs, 
+          opponentDecoys: updatedDecoys,
+          playerShots: [...gs.playerShots, targetCoords], 
+          opponentTurnSkipped: true,
+          turn: 'player' // Player gets another turn
+        } : null);
+        return;
+    }
+
     if (hitShip) {
         let nextTurn: 'player' | 'opponent' = 'opponent';
         let shotMessage = `Direct hit on enemy ${hitShip.name}!`;
@@ -467,7 +506,7 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
     }
   };
   
-  const handlePlacementComplete = (placedShips: Ship[], decoy?: Coordinates) => {
+  const handlePlacementComplete = (placedShips: Ship[], decoys?: Coordinates[]) => {
       const shipsWithHealth = placedShips.map(ship => ({
           ...ship,
           extraHealth: ship.id === gameState.reinforcedShipId ? 1 : 0
@@ -480,7 +519,7 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
              setGameState(gs => gs ? {
                  ...gs,
                  playerShips: shipsWithHealth,
-                 decoyPosition: decoy || null,
+                 playerDecoys: decoys || [],
                  status: 'transition',
                  turn: 'opponent',
                  transitionMessage: 'Player 2, prepare to place your fleet.'
@@ -493,6 +532,7 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
              setGameState(gs => gs ? {
                  ...gs,
                  opponentShips: shipsWithHealth,
+                 opponentDecoys: decoys || [],
                  status: 'transition',
                  turn: 'player',
                  transitionMessage: 'All fleets deployed. Player 1 takes the first shot.'
@@ -501,11 +541,13 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
          }
       } else { // PvE
         const opponentShips = placeOpponentShips();
+        const opponentDecoys = placeOpponentDecoysWithShips(opponentShips);
         setGameState(gs => gs ? { 
             ...gs, 
             playerShips: shipsWithHealth,
             opponentShips,
-            decoyPosition: decoy || null,
+            playerDecoys: decoys || [],
+            opponentDecoys,
             status: 'in_progress',
         } : null);
         setMessage("All fleets deployed. Engage the enemy!");
@@ -752,6 +794,52 @@ const placeOpponentShips = (): Ship[] => {
         }
     }
     return ships;
+};
+
+const placeOpponentDecoys = (): Coordinates[] => {
+    const decoys: Coordinates[] = [];
+    
+    for (let i = 0; i < 2; i++) {
+        let placed = false;
+        while (!placed) {
+            const row = Math.floor(Math.random() * GRID_SIZE);
+            const col = Math.floor(Math.random() * GRID_SIZE);
+            
+            const newDecoy = { row, col };
+            const isOverlappingWithDecoys = decoys.some(d => d.row === row && d.col === col);
+            
+            if (!isOverlappingWithDecoys) {
+                decoys.push(newDecoy);
+                placed = true;
+            }
+        }
+    }
+    
+    return decoys;
+};
+
+const placeOpponentDecoysWithShips = (opponentShips: Ship[]): Coordinates[] => {
+    const decoys: Coordinates[] = [];
+    const allShipPlacements = opponentShips.flatMap(ship => ship.placements);
+
+    for (let i = 0; i < 2; i++) {
+        let placed = false;
+        while (!placed) {
+            const row = Math.floor(Math.random() * GRID_SIZE);
+            const col = Math.floor(Math.random() * GRID_SIZE);
+            
+            const newDecoy = { row, col };
+            const isOverlappingWithShips = allShipPlacements.some(p => p.row === row && p.col === col);
+            const isOverlappingWithDecoys = decoys.some(d => d.row === row && d.col === col);
+            
+            if (!isOverlappingWithShips && !isOverlappingWithDecoys) {
+                decoys.push(newDecoy);
+                placed = true;
+            }
+        }
+    }
+    
+    return decoys;
 };
 
 

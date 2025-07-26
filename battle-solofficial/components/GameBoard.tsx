@@ -7,7 +7,7 @@ interface GameBoardProps {
   isPlayerBoard: boolean;
   gameState: GameState;
   onFire?: (coords: Coordinates) => void;
-  onPlacementComplete?: (ships: Ship[], decoy?: Coordinates) => void;
+  onPlacementComplete?: (ships: Ship[], decoys?: Coordinates[]) => void;
   isScanning?: boolean;
   revealedCells?: Coordinates[];
   hoveredCell?: Coordinates | null;
@@ -19,7 +19,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
   const [currentShipIndex, setCurrentShipIndex] = useState(0);
   const [orientation, setOrientation] = useState<'horizontal' | 'vertical'>('horizontal');
   const [invalidPlacement, setInvalidPlacement] = useState<Coordinates[]>([]);
-  const [isPlacingDecoy, setIsPlacingDecoy] = useState(false);
+  const [isPlacingDecoys, setIsPlacingDecoys] = useState(false);
+  const [placedDecoys, setPlacedDecoys] = useState<Coordinates[]>([]);
+  const [currentDecoyIndex, setCurrentDecoyIndex] = useState(0);
 
   let shipsToDisplay: Ship[];
   let shotsToDisplay: Coordinates[];
@@ -35,7 +37,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
   const resetPlacementState = () => {
     setPlacingShips([]);
     setCurrentShipIndex(0);
-    setIsPlacingDecoy(false);
+    setIsPlacingDecoys(false);
+    setPlacedDecoys([]);
+    setCurrentDecoyIndex(0);
   }
 
   useEffect(() => {
@@ -49,7 +53,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
     if (gameState.status === 'finished') return;
     
     if (gameState.status === 'placing_ships' && isPlayerBoard && onPlacementComplete) {
-      if (isPlacingDecoy) {
+      if (isPlacingDecoys) {
         placeDecoy(row, col);
       } else {
         placeShip(row, col);
@@ -60,13 +64,23 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
   };
 
   const placeDecoy = (row: number, col: number) => {
-    if (placingShips.some(s => s.placements.some(p => p.row === row && p.col === col))) {
+    if (placingShips.some(s => s.placements.some(p => p.row === row && p.col === col)) ||
+        placedDecoys.some(d => d.row === row && d.col === col)) {
         setInvalidPlacement([{ row, col }]);
         setTimeout(() => setInvalidPlacement([]), 300);
         return;
     }
-    onPlacementComplete!(placingShips, {row, col});
-    resetPlacementState();
+    
+    const newDecoys = [...placedDecoys, { row, col }];
+    setPlacedDecoys(newDecoys);
+    
+    const nextDecoyIndex = currentDecoyIndex + 1;
+    setCurrentDecoyIndex(nextDecoyIndex);
+    
+    if (nextDecoyIndex >= 2) { // Place 2 decoys
+        onPlacementComplete!(placingShips, newDecoys);
+        resetPlacementState();
+    }
   }
 
   const placeShip = (row: number, col: number) => {
@@ -114,12 +128,8 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
       setCurrentShipIndex(nextIndex);
 
       if (nextIndex >= SHIP_CONFIG.length) {
-         if (gameState.advantage === 'decoy_buoy') {
-             setIsPlacingDecoy(true);
-         } else {
-             onPlacementComplete!(updatedShips);
-             resetPlacementState();
-         }
+         // Always place 2 decoys in all game modes
+         setIsPlacingDecoys(true);
       }
     } else {
       // Show invalid placement feedback
@@ -142,7 +152,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
 
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-        if (gameState.status !== 'placing_ships' || !isPlayerBoard || isPlacingDecoy) return;
+        if (gameState.status !== 'placing_ships' || !isPlayerBoard || isPlacingDecoys) return;
         if (e.key === 'r' || e.key === 'R') {
             e.preventDefault();
             toggleOrientation();
@@ -150,7 +160,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
     };
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [gameState.status, isPlayerBoard, isPlacingDecoy, toggleOrientation]);
+  }, [gameState.status, isPlayerBoard, isPlacingDecoys, toggleOrientation]);
 
 
   const getCellContent = (row: number, col: number) => {
@@ -160,7 +170,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
     // Opponent Board Hit/Miss Markers
     if (!isPlayerBoard) {
         if (isShot) {
-           const isDecoyHit = gameState.decoyPosition?.row === row && gameState.decoyPosition?.col === col;
+           const isDecoyHit = gameState.opponentDecoys.some(d => d.row === row && d.col === col);
            if(isDecoyHit) {
               return <div className="absolute inset-0 bg-yellow-500/50 flex items-center justify-center"><DecoyIcon className="w-6 h-6 text-yellow-200"/></div>
            }
@@ -195,7 +205,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
     }
 
     // Player Board Markers
-    if (gameState.decoyPosition?.row === row && gameState.decoyPosition?.col === col) {
+    if (gameState.playerDecoys.some(d => d.row === row && d.col === col)) {
       return <div className="absolute inset-0 flex items-center justify-center"><DecoyIcon className="w-6 h-6 text-cyan-glow"/></div>
     }
     if (isShot && shipOnCell) {
