@@ -47,7 +47,9 @@ export const getExpForLevel = (level: number): number => {
 export const calculateExpGain = (wager: number, isWin: boolean): number => {
     const baseExp = Math.floor(wager * 0.2); // 20% of wager as base EXP
     const winBonus = isWin ? Math.floor(wager * 0.15) : 0; // 15% of wager as win bonus
-    return baseExp + winBonus;
+    const total = baseExp + winBonus;
+    const MIN_EXP = 10; // Ensure every game is rewarding
+    return total > 0 ? total : MIN_EXP;
 };
 
 /**
