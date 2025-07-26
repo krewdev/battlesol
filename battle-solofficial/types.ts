@@ -77,6 +77,13 @@ export interface Nft {
   type: 'Passive' | 'Active';
 }
 
+export interface DefenseBuoy {
+  id: number;
+  position: Coordinates;
+  owner: 'player' | 'opponent';
+  used: boolean;
+}
+
 export interface GameState {
   mode: GameMode;
   wager: number; // Now in Gems
@@ -100,6 +107,12 @@ export interface GameState {
   isPlayerAdvantageDisabled: boolean;
   isOpponentAdvantageDisabled: boolean;
   isVolleying: boolean;
+  // Defense buoys state
+  defenseBuoys: DefenseBuoy[];
+  playerBuoysRemaining: number;
+  opponentBuoysRemaining: number;
+  playerTurnSkipped: boolean;
+  opponentTurnSkipped: boolean;
 }
 
 export interface ChatMessage {

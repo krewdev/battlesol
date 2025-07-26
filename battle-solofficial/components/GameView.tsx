@@ -109,11 +109,15 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
     result: ShotResult | null;
     shipName?: string;
     isPlayerShot: boolean;
+    hitDefenseBuoy?: boolean;
+    turnLost?: boolean;
   }>({
     isVisible: false,
     result: null,
     shipName: undefined,
-    isPlayerShot: false
+    isPlayerShot: false,
+    hitDefenseBuoy: false,
+    turnLost: false
   });
 
 
@@ -121,6 +125,30 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
 
   const setHoveredCell = (coords: Coordinates | null) => {
     setGameState(gs => gs ? { ...gs, hoveredCell: coords } : null);
+  };
+
+  // Helper function to check if shot hits a defense buoy
+  const checkDefenseBuoyHit = (coords: Coordinates, targetPlayer: 'player' | 'opponent'): boolean => {
+    return gameState.defenseBuoys.some(buoy => 
+      buoy.position.row === coords.row && 
+      buoy.position.col === coords.col && 
+      buoy.owner === targetPlayer && 
+      !buoy.used
+    );
+  };
+
+  // Helper function to activate a defense buoy
+  const activateDefenseBuoy = (coords: Coordinates, targetPlayer: 'player' | 'opponent') => {
+    const updatedBuoys = gameState.defenseBuoys.map(buoy => 
+      buoy.position.row === coords.row && 
+      buoy.position.col === coords.col && 
+      buoy.owner === targetPlayer && 
+      !buoy.used
+        ? { ...buoy, used: true }
+        : buoy
+    );
+
+    return updatedBuoys;
   };
 
   // Run once on game start to apply passive NFT effects
@@ -181,6 +209,14 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
     setMessage('Enemy is targeting...');
     await new Promise(resolve => setTimeout(resolve, 1000)); // Reduced delay for better pacing
     
+    // Handle turn skip due to defense buoy hit
+    if (gameState.opponentTurnSkipped) {
+      setMessage('Enemy turn skipped due to defense buoy activation!');
+      setGameState(gs => gs ? { ...gs, turn: 'player', opponentTurnSkipped: false } : null);
+      setIsAiThinking(false);
+      return;
+    }
+    
     // Handle EMP NFT
     if (gameState.isOpponentAdvantageDisabled) {
       setMessage('Enemy systems are still offline from our EMP! Turn skipped.');
@@ -238,6 +274,28 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
           opponentShots: [...gs.opponentShots, aiMove], 
           turn: 'player', 
           decoyPosition: null 
+        } : null);
+        setIsAiThinking(false);
+        return;
+      }
+
+      // Check for defense buoy hit first
+      if (checkDefenseBuoyHit(aiMove, 'player')) {
+        const updatedBuoys = activateDefenseBuoy(aiMove, 'player');
+        setMessage("Our defense buoy triggered! Enemy hit a decoy and loses their next turn!");
+        setShotResult({
+          isVisible: true,
+          result: 'miss',
+          isPlayerShot: false,
+          hitDefenseBuoy: true,
+          turnLost: true
+        });
+        setGameState(gs => gs ? { 
+          ...gs, 
+          opponentShots: [...gs.opponentShots, aiMove], 
+          defenseBuoys: updatedBuoys,
+          opponentTurnSkipped: true,
+          turn: 'player'
         } : null);
         setIsAiThinking(false);
         return;
@@ -352,6 +410,13 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
   const handlePlayerFire = (coords: Coordinates) => {
     if (gameState?.status !== 'in_progress' || (gameState.turn !== 'player' && !isPvp) || isScanning || isVolleying) return;
 
+    // Check if player turn should be skipped due to defense buoy
+    if (gameState.playerTurnSkipped) {
+      setMessage("Your turn is skipped due to hitting an enemy defense buoy!");
+      setGameState(gs => gs ? { ...gs, turn: 'opponent', playerTurnSkipped: false } : null);
+      return;
+    }
+
     // Validate coordinates
     if (coords.row < 0 || coords.row >= GRID_SIZE || coords.col < 0 || coords.col >= GRID_SIZE) {
       setMessage("Invalid target coordinates.");
@@ -402,6 +467,27 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
 
   const processPlayerShot = (targetCoords: Coordinates, hitShip: Ship | undefined) => {
     if (!gameState) return;
+
+    // Check for defense buoy hit first
+    if (checkDefenseBuoyHit(targetCoords, 'opponent')) {
+      const updatedBuoys = activateDefenseBuoy(targetCoords, 'opponent');
+      setMessage("You hit an enemy defense buoy! You lose your next turn!");
+      setShotResult({
+        isVisible: true,
+        result: 'miss',
+        isPlayerShot: true,
+        hitDefenseBuoy: true,
+        turnLost: true
+      });
+      setGameState(gs => gs ? { 
+        ...gs, 
+        playerShots: [...gs.playerShots, targetCoords], 
+        defenseBuoys: updatedBuoys,
+        playerTurnSkipped: true,
+        turn: 'opponent'
+      } : null);
+      return;
+    }
 
     if (hitShip) {
         let nextTurn: 'player' | 'opponent' = 'opponent';
@@ -467,11 +553,15 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
     }
   };
   
-  const handlePlacementComplete = (placedShips: Ship[], decoy?: Coordinates) => {
+  const handlePlacementComplete = (placedShips: Ship[], decoy?: Coordinates, defenseBuoys?: DefenseBuoy[]) => {
       const shipsWithHealth = placedShips.map(ship => ({
           ...ship,
           extraHealth: ship.id === gameState.reinforcedShipId ? 1 : 0
       }));
+
+      // Add defense buoys to game state
+      const playerBuoys = defenseBuoys?.map(buoy => ({ ...buoy, owner: 'player' as const })) || [];
+      const updatedDefenseBuoys = [...gameState.defenseBuoys, ...playerBuoys];
 
       if (isPvp) {
          // First placement belongs to Player 1 (turn === 'player')
@@ -481,6 +571,7 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
                  ...gs,
                  playerShips: shipsWithHealth,
                  decoyPosition: decoy || null,
+                 defenseBuoys: updatedDefenseBuoys,
                  status: 'transition',
                  turn: 'opponent',
                  transitionMessage: 'Player 2, prepare to place your fleet.'
@@ -493,6 +584,7 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
              setGameState(gs => gs ? {
                  ...gs,
                  opponentShips: shipsWithHealth,
+                 defenseBuoys: updatedDefenseBuoys,
                  status: 'transition',
                  turn: 'player',
                  transitionMessage: 'All fleets deployed. Player 1 takes the first shot.'
@@ -501,11 +593,15 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
          }
       } else { // PvE
         const opponentShips = placeOpponentShips();
+        const aiDefenseBuoys = placeOpponentDefenseBuoys(opponentShips);
+        const allDefenseBuoys = [...updatedDefenseBuoys, ...aiDefenseBuoys];
+        
         setGameState(gs => gs ? { 
             ...gs, 
             playerShips: shipsWithHealth,
             opponentShips,
             decoyPosition: decoy || null,
+            defenseBuoys: allDefenseBuoys,
             status: 'in_progress',
         } : null);
         setMessage("All fleets deployed. Engage the enemy!");
@@ -709,11 +805,15 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
         result={shotResult.result}
         shipName={shotResult.shipName}
         isPlayerShot={shotResult.isPlayerShot}
+        hitDefenseBuoy={shotResult.hitDefenseBuoy}
+        turnLost={shotResult.turnLost}
         onClose={() => setShotResult({
           isVisible: false,
           result: null,
           shipName: undefined,
-          isPlayerShot: false
+          isPlayerShot: false,
+          hitDefenseBuoy: false,
+          turnLost: false
         })}
       />
     </div>
@@ -752,6 +852,39 @@ const placeOpponentShips = (): Ship[] => {
         }
     }
     return ships;
+};
+
+const placeOpponentDefenseBuoys = (opponentShips: Ship[]): DefenseBuoy[] => {
+    const buoys: DefenseBuoy[] = [];
+    const usedPositions: Coordinates[] = [];
+
+    // Get all opponent ship positions to avoid placing buoys on ships
+    const shipPositions = opponentShips.flatMap(ship => ship.placements);
+
+    for (let i = 0; i < 2; i++) { // Place 2 defense buoys for AI
+        let placed = false;
+        while (!placed) {
+            const row = Math.floor(Math.random() * GRID_SIZE);
+            const col = Math.floor(Math.random() * GRID_SIZE);
+            
+            // Check if position is already used or on a ship
+            const isOccupied = usedPositions.some(pos => pos.row === row && pos.col === col) ||
+                             shipPositions.some(pos => pos.row === row && pos.col === col);
+            
+            if (!isOccupied) {
+                buoys.push({
+                    id: i,
+                    position: { row, col },
+                    owner: 'opponent',
+                    used: false
+                });
+                usedPositions.push({ row, col });
+                placed = true;
+            }
+        }
+    }
+    
+    return buoys;
 };
 
 

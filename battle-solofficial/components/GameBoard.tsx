@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import type { GameState, Coordinates, Ship } from '../types';
+import type { GameState, Coordinates, Ship, DefenseBuoy } from '../types';
 import { GRID_SIZE, SHIP_CONFIG } from '../types';
 import { DecoyIcon, TargetReticuleIcon } from './Icons';
 
@@ -7,7 +7,7 @@ interface GameBoardProps {
   isPlayerBoard: boolean;
   gameState: GameState;
   onFire?: (coords: Coordinates) => void;
-  onPlacementComplete?: (ships: Ship[], decoy?: Coordinates) => void;
+  onPlacementComplete?: (ships: Ship[], decoy?: Coordinates, defenseBuoys?: DefenseBuoy[]) => void;
   isScanning?: boolean;
   revealedCells?: Coordinates[];
   hoveredCell?: Coordinates | null;
@@ -20,6 +20,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
   const [orientation, setOrientation] = useState<'horizontal' | 'vertical'>('horizontal');
   const [invalidPlacement, setInvalidPlacement] = useState<Coordinates[]>([]);
   const [isPlacingDecoy, setIsPlacingDecoy] = useState(false);
+  const [isPlacingDefenseBuoys, setIsPlacingDefenseBuoys] = useState(false);
+  const [placedDefenseBuoys, setPlacedDefenseBuoys] = useState<DefenseBuoy[]>([]);
+  const [buoysToPlace, setBuoysToPlace] = useState(0);
 
   let shipsToDisplay: Ship[];
   let shotsToDisplay: Coordinates[];
@@ -36,6 +39,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
     setPlacingShips([]);
     setCurrentShipIndex(0);
     setIsPlacingDecoy(false);
+    setIsPlacingDefenseBuoys(false);
+    setPlacedDefenseBuoys([]);
+    setBuoysToPlace(0);
   }
 
   useEffect(() => {
@@ -49,7 +55,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
     if (gameState.status === 'finished') return;
     
     if (gameState.status === 'placing_ships' && isPlayerBoard && onPlacementComplete) {
-      if (isPlacingDecoy) {
+      if (isPlacingDefenseBuoys) {
+        placeDefenseBuoy(row, col);
+      } else if (isPlacingDecoy) {
         placeDecoy(row, col);
       } else {
         placeShip(row, col);
@@ -59,13 +67,48 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
     }
   };
 
-  const placeDecoy = (row: number, col: number) => {
-    if (placingShips.some(s => s.placements.some(p => p.row === row && p.col === col))) {
+  const placeDefenseBuoy = (row: number, col: number) => {
+    // Check if position is occupied by ship or another buoy
+    if (placingShips.some(s => s.placements.some(p => p.row === row && p.col === col)) ||
+        placedDefenseBuoys.some(b => b.position.row === row && b.position.col === col)) {
         setInvalidPlacement([{ row, col }]);
         setTimeout(() => setInvalidPlacement([]), 300);
         return;
     }
-    onPlacementComplete!(placingShips, {row, col});
+
+    const newBuoy: DefenseBuoy = {
+      id: placedDefenseBuoys.length,
+      position: { row, col },
+      owner: 'player',
+      used: false
+    };
+
+    const updatedBuoys = [...placedDefenseBuoys, newBuoy];
+    setPlacedDefenseBuoys(updatedBuoys);
+    
+    const remainingBuoys = buoysToPlace - 1;
+    setBuoysToPlace(remainingBuoys);
+
+    if (remainingBuoys === 0) {
+      // All buoys placed, check for NFT decoy next
+      if (gameState.advantage === 'decoy_buoy') {
+        setIsPlacingDefenseBuoys(false);
+        setIsPlacingDecoy(true);
+      } else {
+        onPlacementComplete!(placingShips, undefined, updatedBuoys);
+        resetPlacementState();
+      }
+    }
+  };
+
+  const placeDecoy = (row: number, col: number) => {
+    if (placingShips.some(s => s.placements.some(p => p.row === row && p.col === col)) ||
+        placedDefenseBuoys.some(b => b.position.row === row && b.position.col === col)) {
+        setInvalidPlacement([{ row, col }]);
+        setTimeout(() => setInvalidPlacement([]), 300);
+        return;
+    }
+    onPlacementComplete!(placingShips, {row, col}, placedDefenseBuoys);
     resetPlacementState();
   }
 
@@ -114,12 +157,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
       setCurrentShipIndex(nextIndex);
 
       if (nextIndex >= SHIP_CONFIG.length) {
-         if (gameState.advantage === 'decoy_buoy') {
-             setIsPlacingDecoy(true);
-         } else {
-             onPlacementComplete!(updatedShips);
-             resetPlacementState();
-         }
+         // Start defense buoy placement (2 buoys for all players)
+         setIsPlacingDefenseBuoys(true);
+         setBuoysToPlace(2);
       }
     } else {
       // Show invalid placement feedback
@@ -198,6 +238,18 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
     if (gameState.decoyPosition?.row === row && gameState.decoyPosition?.col === col) {
       return <div className="absolute inset-0 flex items-center justify-center"><DecoyIcon className="w-6 h-6 text-cyan-glow"/></div>
     }
+
+    // Show defense buoys on player board
+    const defenseBuoyOnCell = gameState.defenseBuoys.find(buoy => 
+      buoy.position.row === row && buoy.position.col === col && buoy.owner === 'player'
+    );
+    if (defenseBuoyOnCell) {
+      return (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className={`w-4 h-4 rounded-full ${defenseBuoyOnCell.used ? 'bg-gray-500' : 'bg-blue-500'} border-2 border-white animate-pulse`} />
+        </div>
+      );
+    }
     if (isShot && shipOnCell) {
        return (
             <>
@@ -240,14 +292,34 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
         return 'bg-cyan-900/50 border-cyan-400';
     }
 
+    // Show defense buoy positions
+    const defenseBuoyOnCell = gameState.defenseBuoys.find(buoy => 
+      buoy.position.row === row && buoy.position.col === col && 
+      (isPlayerBoard ? buoy.owner === 'player' : buoy.owner === 'opponent')
+    );
+    if (defenseBuoyOnCell) {
+      return defenseBuoyOnCell.used ? 'bg-gray-700/50 border-gray-400' : 'bg-blue-900/50 border-blue-400';
+    }
+
     // Show revealed cells from radar scan
     const isRevealed = revealedCells?.some(c => c.row === row && c.col === col);
     if(isRevealed && !shotsToDisplay.some(s => s.row === row && s.col === col)) {
       return 'bg-cyan-500/30 animate-pulse border-cyan-300';
     }
     
+    // Show defense buoy placement preview
+    if (isPlayerBoard && gameState.status === 'placing_ships' && isPlacingDefenseBuoys) {
+      const isOccupied = placingShips.some(s => s.placements.some(p => p.row === row && p.col === col)) ||
+                        placedDefenseBuoys.some(b => b.position.row === row && b.position.col === col);
+      if (hoveredCell && hoveredCell.row === row && hoveredCell.col === col) {
+        return isOccupied ? 
+          'bg-red-500/30 border-red-400 hover:bg-red-500/50' : 
+          'bg-blue-500/30 border-blue-400 hover:bg-blue-500/50';
+      }
+    }
+
     // Show ship placement preview during placement phase
-    if (isPlayerBoard && gameState.status === 'placing_ships' && !isPlacingDecoy && currentShipIndex < SHIP_CONFIG.length) {
+    if (isPlayerBoard && gameState.status === 'placing_ships' && !isPlacingDecoy && !isPlacingDefenseBuoys && currentShipIndex < SHIP_CONFIG.length) {
       const shipConfig = SHIP_CONFIG[currentShipIndex];
       const isPreviewCell = isShipPreviewCell(row, col, shipConfig);
       if (isPreviewCell.isPreview) {
@@ -335,7 +407,9 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
       </div>
       {gameState.status === 'placing_ships' && isPlayerBoard && (
          <div className="mt-4 text-center p-4 bg-navy-800 rounded-lg border border-navy-700 w-full max-w-sm">
-           {isPlacingDecoy ? (
+           {isPlacingDefenseBuoys ? (
+              <p className="text-lg font-semibold text-blue-400 animate-pulse">Place Defense Buoys ({buoysToPlace} remaining)</p>
+           ) : isPlacingDecoy ? (
               <p className="text-lg font-semibold text-cyan-glow animate-pulse">Place your Decoy Buoy</p>
            ) : currentShipIndex < SHIP_CONFIG.length ? (
             <>
