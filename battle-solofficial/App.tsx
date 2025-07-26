@@ -28,6 +28,7 @@ const App: React.FC = () => {
   const [nfts, setNfts] =useState<Nft[]>([]); // User's purchased NFTs
   const [gameOverData, setGameOverData] = useState<{ winnerName: string, isDraw: boolean, wager: number, expGained: number, isPlayerWinner: boolean, isGuest: boolean } | null>(null);
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   
   const walletAdapter = useWallet();
 
@@ -47,6 +48,16 @@ const App: React.FC = () => {
     }
   }, [walletAdapter.connected, walletAdapter.publicKey, wallet]);
 
+
+  const connectWallet = async (): Promise<boolean> => {
+    try {
+      await walletAdapter.connect();
+      return true;
+    } catch (error) {
+      console.error('Failed to connect wallet:', error);
+      return false;
+    }
+  };
 
   const handleConnectWallet = async () => {
     try {
