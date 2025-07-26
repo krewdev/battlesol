@@ -63,25 +63,39 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
     }
   };
 
+  const isAdjacentToShip = (row: number, col: number, ships: Ship[]) => {
+    const adjacentOffsets = [
+      { dr: -1, dc: 0 }, { dr: 1, dc: 0 }, { dr: 0, dc: -1 }, { dr: 0, dc: 1 },
+      { dr: -1, dc: -1 }, { dr: -1, dc: 1 }, { dr: 1, dc: -1 }, { dr: 1, dc: 1 }
+    ];
+    return adjacentOffsets.some(offset =>
+      ships.some(ship =>
+        ship.placements.some(p => p.row === row + offset.dr && p.col === col + offset.dc)
+      )
+    );
+  };
+
   const placeDecoy = (row: number, col: number) => {
-    if (placingShips.some(s => s.placements.some(p => p.row === row && p.col === col)) ||
+    if (shipsToDisplay.some(s => s.placements.some(p => p.row === row && p.col === col)) ||
         placedDecoys.some(d => d.row === row && d.col === col)) {
-        setInvalidPlacement([{ row, col }]);
-        setTimeout(() => setInvalidPlacement([]), 300);
-        return;
+      setInvalidPlacement([{ row, col }]);
+      setTimeout(() => setInvalidPlacement([]), 300);
+      return;
     }
-    
+    const adjacent = isAdjacentToShip(row, col, shipsToDisplay);
+    if (adjacent) {
+      // Show warning but allow placement
+      alert('Warning: Placing a decoy next to a ship will cause that ship to be instantly sunk if the decoy is hit!');
+    }
     const newDecoys = [...placedDecoys, { row, col }];
     setPlacedDecoys(newDecoys);
-    
     const nextDecoyIndex = currentDecoyIndex + 1;
     setCurrentDecoyIndex(nextDecoyIndex);
-    
-    if (nextDecoyIndex >= 2) { // Place 2 decoys
-        onPlacementComplete!(placingShips, newDecoys);
-        resetPlacementState();
+    if (nextDecoyIndex >= 2) {
+      onPlacementComplete!(shipsToDisplay, newDecoys);
+      resetPlacementState();
     }
-  }
+  };
 
   const placeShip = (row: number, col: number) => {
     if (currentShipIndex >= SHIP_CONFIG.length) return;
@@ -257,7 +271,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
     }
     
     // Show ship placement preview during placement phase
-    if (isPlayerBoard && gameState.status === 'placing_ships' && !isPlacingDecoy && currentShipIndex < SHIP_CONFIG.length) {
+    if (isPlayerBoard && gameState.status === 'placing_ships' && !isPlacingDecoys && currentShipIndex < SHIP_CONFIG.length) {
       const shipConfig = SHIP_CONFIG[currentShipIndex];
       const isPreviewCell = isShipPreviewCell(row, col, shipConfig);
       if (isPreviewCell.isPreview) {
@@ -345,7 +359,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
       </div>
       {gameState.status === 'placing_ships' && isPlayerBoard && (
          <div className="mt-4 text-center p-4 bg-navy-800 rounded-lg border border-navy-700 w-full max-w-sm">
-           {isPlacingDecoy ? (
+           {isPlacingDecoys ? (
               <p className="text-lg font-semibold text-cyan-glow animate-pulse">Place your Decoy Buoy</p>
            ) : currentShipIndex < SHIP_CONFIG.length ? (
             <>
@@ -357,6 +371,11 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
             </>
            ) : null}
          </div>
+      )}
+      {(isPlacingDecoys || gameState.status === 'placing_decoys') && (
+        <div className="mb-2 text-yellow-400 font-bold text-center">
+          Avoid placing decoys next to ships or you risk losing a ship if the decoy is hit!
+        </div>
       )}
     </div>
   );

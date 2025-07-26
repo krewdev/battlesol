@@ -420,24 +420,44 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
     const isDecoyHit = gameState.opponentDecoys.some(d => d.row === targetCoords.row && d.col === targetCoords.col);
     
     if (isDecoyHit) {
-        setMessage('Decoy hit! Enemy turn lost!');
+        // Check for adjacent ships
+        const adjacentOffsets = [
+          { dr: -1, dc: 0 }, { dr: 1, dc: 0 }, { dr: 0, dc: -1 }, { dr: 0, dc: 1 },
+          { dr: -1, dc: -1 }, { dr: -1, dc: 1 }, { dr: 1, dc: -1 }, { dr: 1, dc: 1 }
+        ];
+        let sunkShipName = '';
+        let updatedShips = gameState.opponentShips;
+        for (const offset of adjacentOffsets) {
+          const adjRow = targetCoords.row + offset.dr;
+          const adjCol = targetCoords.col + offset.dc;
+          const adjShip = gameState.opponentShips.find(ship =>
+            ship.placements.some(p => p.row === adjRow && p.col === adjCol) && !ship.sunk
+          );
+          if (adjShip) {
+            sunkShipName = adjShip.name;
+            updatedShips = updatedShips.map(s =>
+              s.id === adjShip.id ? { ...s, hits: [...s.placements], sunk: true } : s
+            );
+          }
+        }
+        setMessage(sunkShipName ? `Decoy hit! Enemy ${sunkShipName} was instantly sunk!` : 'Decoy hit! Enemy turn lost!');
         setShotResult({
           isVisible: true,
           result: 'decoy_hit',
-          isPlayerShot: true
+          isPlayerShot: true,
+          shipName: sunkShipName || undefined
         });
-        
         // Remove the hit decoy and skip opponent's turn
-        const updatedDecoys = gameState.opponentDecoys.filter(d => 
+        const updatedDecoys = gameState.opponentDecoys.filter(d =>
           !(d.row === targetCoords.row && d.col === targetCoords.col)
         );
-        
-        setGameState(gs => gs ? { 
-          ...gs, 
+        setGameState(gs => gs ? {
+          ...gs,
           opponentDecoys: updatedDecoys,
-          playerShots: [...gs.playerShots, targetCoords], 
+          opponentShips: updatedShips,
+          playerShots: [...gs.playerShots, targetCoords],
           opponentTurnSkipped: true,
-          turn: 'player' // Player gets another turn
+          turn: 'player'
         } : null);
         return;
     }
@@ -507,51 +527,61 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
   };
   
   const handlePlacementComplete = (placedShips: Ship[], decoys?: Coordinates[]) => {
-      const shipsWithHealth = placedShips.map(ship => ({
-          ...ship,
-          extraHealth: ship.id === gameState.reinforcedShipId ? 1 : 0
-      }));
+    const shipsWithHealth = placedShips.map(ship => ({
+      ...ship,
+      extraHealth: ship.id === gameState.reinforcedShipId ? 1 : 0
+    }));
 
-      if (isPvp) {
-         // First placement belongs to Player 1 (turn === 'player')
-         if (gameState.playerShips.length === 0) {
-             // Save Player 1 fleet and hand device to Player 2
-             setGameState(gs => gs ? {
-                 ...gs,
-                 playerShips: shipsWithHealth,
-                 playerDecoys: decoys || [],
-                 status: 'transition',
-                 turn: 'opponent',
-                 transitionMessage: 'Player 2, prepare to place your fleet.'
-             } : null);
-             return;
-         }
+    if (gameState.status === 'placing_ships') {
+      // After ships are placed, transition to decoy placement
+      setGameState(gs => gs ? {
+        ...gs,
+        playerShips: shipsWithHealth,
+        status: 'placing_decoys',
+        transitionMessage: '',
+      } : null);
+      setMessage('Place your 2 decoys. Avoid placing them next to ships or you risk losing a ship if the decoy is hit!');
+      return;
+    }
 
-         // Second placement belongs to Player 2
-         if (gameState.opponentShips.length === 0) {
-             setGameState(gs => gs ? {
-                 ...gs,
-                 opponentShips: shipsWithHealth,
-                 opponentDecoys: decoys || [],
-                 status: 'transition',
-                 turn: 'player',
-                 transitionMessage: 'All fleets deployed. Player 1 takes the first shot.'
-             } : null);
-             return;
-         }
-      } else { // PvE
+    if (gameState.status === 'placing_decoys') {
+      // After decoys are placed, start the game
+      if (gameState.mode === 'Online PvP (Simulated)') {
+        // PvP: transition to opponent ship placement or start game
+        if (gameState.playerShips.length > 0 && gameState.opponentShips.length === 0) {
+          setGameState(gs => gs ? {
+            ...gs,
+            playerDecoys: decoys || [],
+            status: 'transition',
+            turn: 'opponent',
+            transitionMessage: 'Player 2, prepare to place your fleet.'
+          } : null);
+          return;
+        }
+        if (gameState.opponentShips.length > 0) {
+          setGameState(gs => gs ? {
+            ...gs,
+            opponentDecoys: decoys || [],
+            status: 'transition',
+            turn: 'player',
+            transitionMessage: 'All fleets deployed. Player 1 takes the first shot.'
+          } : null);
+          return;
+        }
+      } else {
+        // PvE: place AI decoys and start game
         const opponentShips = placeOpponentShips();
         const opponentDecoys = placeOpponentDecoysWithShips(opponentShips);
-        setGameState(gs => gs ? { 
-            ...gs, 
-            playerShips: shipsWithHealth,
-            opponentShips,
-            playerDecoys: decoys || [],
-            opponentDecoys,
-            status: 'in_progress',
+        setGameState(gs => gs ? {
+          ...gs,
+          playerDecoys: decoys || [],
+          opponentShips,
+          opponentDecoys,
+          status: 'in_progress',
         } : null);
-        setMessage("All fleets deployed. Engage the enemy!");
+        setMessage('All fleets and decoys deployed. Engage the enemy!');
       }
+    }
   };
 
   const handleUseAdvantage = () => {
@@ -818,28 +848,40 @@ const placeOpponentDecoys = (): Coordinates[] => {
     return decoys;
 };
 
-const placeOpponentDecoysWithShips = (opponentShips: Ship[]): Coordinates[] => {
-    const decoys: Coordinates[] = [];
-    const allShipPlacements = opponentShips.flatMap(ship => ship.placements);
+// Helper for AI decoy placement
+const isAdjacentToShip = (row: number, col: number, ships: Ship[]) => {
+  const adjacentOffsets = [
+    { dr: -1, dc: 0 }, { dr: 1, dc: 0 }, { dr: 0, dc: -1 }, { dr: 0, dc: 1 },
+    { dr: -1, dc: -1 }, { dr: -1, dc: 1 }, { dr: 1, dc: -1 }, { dr: 1, dc: 1 }
+  ];
+  return adjacentOffsets.some(offset =>
+    ships.some(ship =>
+      ship.placements.some(p => p.row === row + offset.dr && p.col === col + offset.dc)
+    )
+  );
+};
 
-    for (let i = 0; i < 2; i++) {
-        let placed = false;
-        while (!placed) {
-            const row = Math.floor(Math.random() * GRID_SIZE);
-            const col = Math.floor(Math.random() * GRID_SIZE);
-            
-            const newDecoy = { row, col };
-            const isOverlappingWithShips = allShipPlacements.some(p => p.row === row && p.col === col);
-            const isOverlappingWithDecoys = decoys.some(d => d.row === row && d.col === col);
-            
-            if (!isOverlappingWithShips && !isOverlappingWithDecoys) {
-                decoys.push(newDecoy);
-                placed = true;
-            }
-        }
+const placeOpponentDecoysWithShips = (opponentShips: Ship[]): Coordinates[] => {
+  const decoys: Coordinates[] = [];
+  const allShipPlacements = opponentShips.flatMap(ship => ship.placements);
+  for (let i = 0; i < 2; i++) {
+    let placed = false;
+    let attempts = 0;
+    while (!placed && attempts < 100) {
+      const row = Math.floor(Math.random() * GRID_SIZE);
+      const col = Math.floor(Math.random() * GRID_SIZE);
+      const newDecoy = { row, col };
+      const isOverlappingWithShips = allShipPlacements.some(p => p.row === row && p.col === col);
+      const isOverlappingWithDecoys = decoys.some(d => d.row === row && d.col === col);
+      const isAdjacent = isAdjacentToShip(row, col, opponentShips);
+      if (!isOverlappingWithShips && !isOverlappingWithDecoys && !isAdjacent) {
+        decoys.push(newDecoy);
+        placed = true;
+      }
+      attempts++;
     }
-    
-    return decoys;
+  }
+  return decoys;
 };
 
 

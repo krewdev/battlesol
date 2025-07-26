@@ -59,7 +59,7 @@ export interface Ship {
   extraHealth?: number;
 }
 
-export type GameStatus = 'placing_ships' | 'in_progress' | 'finished' | 'transition';
+export type GameStatus = 'placing_ships' | 'placing_decoys' | 'in_progress' | 'finished' | 'transition';
 export type GameMode = 'Player vs AI' | 'Online PvP (Simulated)' | 'Daily AI Battle';
 export type Turn = 'player' | 'opponent';
 
