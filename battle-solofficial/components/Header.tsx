@@ -9,10 +9,12 @@ import { DiamondIcon, UserCircleIcon, RANK_ICONS, XMarkIcon, LogoIcon, MenuIcon 
 interface HeaderProps {
   wallet: Wallet;
   onNavigate: (view: View) => void;
-  onDisconnect: () => void;
+  currentView: View;
+  onShowAdminPanel?: () => void;
+  onDisconnect?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ wallet, onNavigate, onDisconnect }) => {
+const Header: React.FC<HeaderProps> = ({ wallet, onNavigate, currentView, onShowAdminPanel, onDisconnect }) => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -71,6 +73,16 @@ const Header: React.FC<HeaderProps> = ({ wallet, onNavigate, onDisconnect }) => 
         </button>
 
         <div className="flex items-center gap-4">
+            {/* Admin Panel Button */}
+            {onShowAdminPanel && (
+              <button
+                onClick={onShowAdminPanel}
+                className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-sm font-bold transition-colors"
+              >
+                Admin Panel
+              </button>
+            )}
+            
             <div className="relative" ref={dropdownRef}>
                 <button onClick={() => setIsProfileOpen(prev => !prev)} className="flex items-center gap-3 bg-navy-700/80 rounded-lg p-2 border border-navy-700 hover:border-cyan-glow/50 transition-colors">
                     <img src={wallet.avatarUrl} alt="Player Avatar" className="w-10 h-10 rounded-full bg-navy-800 border-2 border-cyan-glow"/>

@@ -5,6 +5,7 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import type { Wallet, GameState, GameMode, Nft, View } from './types';
 import { initializeUserProfile } from './services/solanaService';
 import { getRankDetails, calculateExpGain, calculateRakeback } from './services/rankService';
+import { registerUser } from './services/userManagementService';
 import { getMatchFee, NFT_USAGE_FEE } from './services/feeService';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
@@ -18,6 +19,7 @@ import ProfileView from './components/ProfileView';
 import GameOverModal from './components/GameOverModal';
 import ProvablyFairView from './components/ProvablyFairView';
 import PresaleView from './components/PresaleView';
+import AdminPanel from './components/AdminPanel';
 
 const App: React.FC = () => {
   const [wallet, setWallet] = useState<Wallet | null>(null);
@@ -25,6 +27,7 @@ const App: React.FC = () => {
   const [view, setView] = useState<View>('dashboard');
   const [nfts, setNfts] =useState<Nft[]>([]); // User's purchased NFTs
   const [gameOverData, setGameOverData] = useState<{ winnerName: string, isDraw: boolean, wager: number, expGained: number, isPlayerWinner: boolean, isGuest: boolean } | null>(null);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
   
   const walletAdapter = useWallet();
 
@@ -45,8 +48,27 @@ const App: React.FC = () => {
   }, [walletAdapter.connected, walletAdapter.publicKey, wallet]);
 
 
+  const handleConnectWallet = async () => {
+    try {
+      setIsConnecting(true);
+      const connected = await connectWallet();
+      if (connected && wallet) {
+        // Register the user in the user management system
+        registerUser(wallet);
+        setView('dashboard');
+      }
+    } catch (error) {
+      console.error('Failed to connect wallet:', error);
+      alert('Failed to connect wallet. Please try again.');
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
   const handlePlayAsGuest = useCallback(() => {
     const guestProfile = initializeUserProfile('GUEST_BATTLE_SOL_SIMULATION_ADDR');
+    // Register the guest user in the user management system
+    registerUser(guestProfile);
     // For trial runs, grant the guest some NFTs to try out
     const trialNfts = AVAILABLE_NFTS.filter((n: Nft) => ['radar_scan', 'reinforced_hull', 'decoy_buoy'].includes(n.advantage));
     setNfts(trialNfts);
@@ -296,7 +318,7 @@ const App: React.FC = () => {
         balance: w.balance + w.unclaimedRake,
         unclaimedRake: 0
     } : null);
-    alert(`Successfully claimed ${amountClaimed.toFixed(2)} $SHIP in rakeback!`);
+    alert(`Successfully claimed ${amountClaimed.toFixed(2)} $SHIP tokens in rakeback!`);
   }
 
   const handleRedeemCode = (code: string) => {
@@ -408,12 +430,15 @@ const App: React.FC = () => {
   return (
     <div className="bg-navy-900 min-h-screen text-white font-sans flex flex-col">
       <div className="absolute top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5 z-0"></div>
-      {wallet && <Header wallet={wallet} onNavigate={setView} onDisconnect={handleDisconnect} />}
+      {wallet && <Header wallet={wallet} onNavigate={setView} currentView={view} onShowAdminPanel={() => setShowAdminPanel(true)} onDisconnect={handleDisconnect} />}
       <main className="flex-grow container mx-auto px-4 py-8 z-10">
         {renderView()}
       </main>
       {wallet && <Footer />}
       {gameOverData && <GameOverModal {...gameOverData} onClose={handleCloseGameOverModal} />}
+      {showAdminPanel && (
+        <AdminPanel onClose={() => setShowAdminPanel(false)} />
+      )}
     </div>
   );
 };
