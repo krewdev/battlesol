@@ -53,15 +53,15 @@ export const calculateExpGain = (wager: number, isWin: boolean): number => {
 };
 
 /**
- * Calculates the amount of SHIP tokens to add to the player's claimable rakeback balance.
- * Rakeback is now paid in $SHIP tokens and is a percentage of the wager amount.
+ * Calculates the amount of gems to add to the player's claimable rakeback balance.
+ * Rakeback is paid in gems and is a percentage of the wager amount.
  * @param wager The amount of Gems wagered.
  * @param rakebackPercentage The player's current rakeback percentage.
- * @returns The amount of $SHIP tokens to add to the unclaimedRake balance.
+ * @returns The amount of gems to add to the unclaimedRake balance.
  */
 export const calculateRakeback = (wager: number, rakebackPercentage: number): number => {
-    // Rakeback is now a direct percentage of the wager amount in SHIP tokens
+    // Rakeback is a direct percentage of the wager amount in gems
     // This makes it more transparent and easier to understand
-    const rakebackInShip = wager * rakebackPercentage;
-    return Math.floor(rakebackInShip); // Round down to avoid fractional tokens
+    const rakebackInGems = wager * rakebackPercentage;
+    return Math.floor(rakebackInGems); // Round down to avoid fractional gems
 };
