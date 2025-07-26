@@ -13,7 +13,7 @@ interface DailyBattleModalProps {
 const DailyBattleModal: React.FC<DailyBattleModalProps> = ({ onClose, onStartBattle, onRedeemCode, rank }) => {
   const [code, setCode] = useState('');
   const rankDetails = getRankDetails(rank);
-  const gemReward = Math.floor(rankDetails.gemReward * 0.2); // 20% of rank up reward for daily win
+  const gemReward = Math.floor(rankDetails.gemReward * 0.3); // 30% of rank up reward for daily win - increased for better rewards
 
   const handleRedeem = () => {
     if(code.trim()){

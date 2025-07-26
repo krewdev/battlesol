@@ -51,6 +51,10 @@ const ShotResultModal: React.FC<ShotResultModalProps> = ({
       sunk: {
         player: [`${shipName} DESTROYED!`, `${shipName} ELIMINATED!`, `${shipName} DOWN!`, 'VESSEL SUNK!'],
         opponent: [`YOUR ${shipName} LOST!`, `${shipName} DESTROYED!`, 'SHIP DOWN!', 'VESSEL LOST!']
+      },
+      decoy_hit: {
+        player: ['DECOY HIT!', 'BOUT HIT!', 'PLAYER TURN LOST!', 'DECOY ACTIVATED!'],
+        opponent: ['ENEMY DECOY HIT!', 'BOUT HIT!', 'ENEMY TURN LOST!', 'DECOY TRIGGERED!']
       }
     };
 
@@ -81,6 +85,8 @@ const ShotResultModal: React.FC<ShotResultModalProps> = ({
         return 'text-blue-400';
       case 'sunk':
         return isPlayerShot ? 'text-yellow-400' : 'text-orange-400';
+      case 'decoy_hit':
+        return 'text-purple-400';
       default:
         return 'text-white';
     }
@@ -94,6 +100,8 @@ const ShotResultModal: React.FC<ShotResultModalProps> = ({
         return 'bg-blue-900/50';
       case 'sunk':
         return 'bg-orange-900/70 animate-pulse';
+      case 'decoy_hit':
+        return 'bg-purple-900/70 animate-pulse';
       default:
         return 'bg-black/50';
     }
@@ -113,6 +121,15 @@ const ShotResultModal: React.FC<ShotResultModalProps> = ({
       return (
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="w-20 h-20 rounded-full bg-gradient-radial from-blue-300 via-cyan-400 to-blue-600 animate-bounce opacity-60"></div>
+        </div>
+      );
+    }
+    
+    if (result === 'decoy_hit') {
+      return (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-28 h-28 rounded-full bg-gradient-radial from-purple-400 via-pink-500 to-purple-600 animate-ping opacity-75"></div>
+          <div className="absolute w-20 h-20 rounded-full bg-gradient-radial from-white via-purple-300 to-pink-400 animate-pulse"></div>
         </div>
       );
     }
@@ -145,6 +162,7 @@ const ShotResultModal: React.FC<ShotResultModalProps> = ({
           {result === 'hit' && '💥 BOOM!'}
           {result === 'miss' && '💧 SPLASH!'}
           {result === 'sunk' && '🔥 EXPLOSION!'}
+          {result === 'decoy_hit' && '🎯 DECOY!'}
         </div>
       </div>
     </div>
