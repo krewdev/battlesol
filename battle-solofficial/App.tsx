@@ -75,7 +75,7 @@ const App: React.FC = () => {
             mode: 'Player vs AI',
             wager: 0,
             advantage: selectedNft?.advantage || null,
-            playerShips: [], opponentShips: [], playerShots: [], opponentShots: [], status: 'placing_ships', turn: 'player', winner: null, advantageUsed: false, transitionMessage: '', playerNftSkinUrl: null, hoveredCell: null, aiMode: 'searching', aiHuntQueue: [], reinforcedShipId: null, decoyPosition: null, isPlayerAdvantageDisabled: false, isOpponentAdvantageDisabled: false, isVolleying: false,
+            playerShips: [], opponentShips: [], playerShots: [], opponentShots: [], status: 'placing_ships', turn: 'player', winner: null, advantageUsed: false, transitionMessage: '', playerNftSkinUrl: null, hoveredCell: null, aiMode: 'searching', aiHuntQueue: [], reinforcedShipId: null, decoyPosition: null, isPlayerAdvantageDisabled: false, isOpponentAdvantageDisabled: false, isVolleying: false, playerDecoys: [], opponentDecoys: [], playerDecoysRemaining: 2, opponentDecoysRemaining: 2, playerTurnSkipped: false, opponentTurnSkipped: false,
         });
         setView('game');
         return;
@@ -133,6 +133,12 @@ const App: React.FC = () => {
       isPlayerAdvantageDisabled: false,
       isOpponentAdvantageDisabled: false,
       isVolleying: false,
+      playerDecoys: [],
+      opponentDecoys: [],
+      playerDecoysRemaining: 2,
+      opponentDecoysRemaining: 2,
+      playerTurnSkipped: false,
+      opponentTurnSkipped: false,
     });
     setView('game');
   };
@@ -163,11 +169,10 @@ const App: React.FC = () => {
 
     if (finalGameState.mode === 'Daily AI Battle' && isWin) {
       const rankDetails = getRankDetails(wallet.rank);
-      const gemReward = Math.floor(rankDetails.gemReward * 0.2);
-      newLockedGems += gemReward;
-      newWagerRequirement += gemReward;
+      const gemReward = Math.floor(rankDetails.gemReward * 0.3); // 30% of rank up reward for daily win
+      newGems += gemReward; // Direct gems instead of locked gems for better gameplay
       newGemsWon += gemReward;
-      alert(`Daily Battle victory! You earned ${gemReward} locked Gems! Meet the wager requirement to unlock.`);
+      alert(`Daily Battle victory! You earned ${gemReward} Gems based on your rank!`);
     }
 
     const expGained = finalGameState.wager > 0 ? calculateExpGain(finalGameState.wager, isWin) : 0;
@@ -356,6 +361,12 @@ const App: React.FC = () => {
       isPlayerAdvantageDisabled: false,
       isOpponentAdvantageDisabled: false,
       isVolleying: false,
+      playerDecoys: [],
+      opponentDecoys: [],
+      playerDecoysRemaining: 2,
+      opponentDecoysRemaining: 2,
+      playerTurnSkipped: false,
+      opponentTurnSkipped: false,
     });
     setView('game');
   };

@@ -63,7 +63,7 @@ export type GameStatus = 'placing_ships' | 'in_progress' | 'finished' | 'transit
 export type GameMode = 'Player vs AI' | 'Online PvP (Simulated)' | 'Daily AI Battle';
 export type Turn = 'player' | 'opponent';
 
-export type ShotResult = 'hit' | 'miss' | 'sunk';
+export type ShotResult = 'hit' | 'miss' | 'sunk' | 'decoy_hit';
 export type Advantage = 'extra_shot' | 'radar_scan' | 'ghost_shield' | 'reinforced_hull' | 'decoy_buoy' | 'volley_fire' | 'emp_blast' | 'sabotage' | 'targeting_computer' | 'salvage_crew';
 
 export interface Nft {
@@ -100,6 +100,13 @@ export interface GameState {
   isPlayerAdvantageDisabled: boolean;
   isOpponentAdvantageDisabled: boolean;
   isVolleying: boolean;
+  // New decoy system
+  playerDecoys: Coordinates[];
+  opponentDecoys: Coordinates[];
+  playerDecoysRemaining: number;
+  opponentDecoysRemaining: number;
+  playerTurnSkipped: boolean;
+  opponentTurnSkipped: boolean;
 }
 
 export interface ChatMessage {
