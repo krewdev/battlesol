@@ -7,6 +7,8 @@ interface ShotResultModalProps {
   shipName?: string;
   isPlayerShot: boolean;
   onClose: () => void;
+  hitDefenseBuoy?: boolean;
+  turnLost?: boolean;
 }
 
 const ShotResultModal: React.FC<ShotResultModalProps> = ({ 
@@ -14,7 +16,9 @@ const ShotResultModal: React.FC<ShotResultModalProps> = ({
   result, 
   shipName, 
   isPlayerShot, 
-  onClose 
+  onClose,
+  hitDefenseBuoy = false,
+  turnLost = false
 }) => {
   const [animationStage, setAnimationStage] = useState<'enter' | 'display' | 'exit'>('enter');
 
@@ -39,6 +43,16 @@ const ShotResultModal: React.FC<ShotResultModalProps> = ({
   if (!isVisible || !result) return null;
 
   const getResultMessages = (result: ShotResult, isPlayerShot: boolean) => {
+    // Special case for defense buoy hits
+    if (hitDefenseBuoy) {
+      const buoyMessages = {
+        player: ['DECOY BUOY HIT!', 'DEFENSE TRAP!', 'BUOY TRIGGERED!', 'DECOY ACTIVATED!'],
+        opponent: ['ENEMY HIT DECOY!', 'DEFENSE SUCCESS!', 'BUOY TRIGGERED!', 'DECOY WORKED!']
+      };
+      const messageArray = buoyMessages[isPlayerShot ? 'player' : 'opponent'];
+      return messageArray[Math.floor(Math.random() * messageArray.length)];
+    }
+
     const messages = {
       hit: {
         player: ['CONTACT!', 'AFFIRMATIVE!', 'ON TARGET!', 'DIRECT HIT!'],
@@ -139,12 +153,19 @@ const ShotResultModal: React.FC<ShotResultModalProps> = ({
             {shipName} ELIMINATED
           </div>
         )}
+
+        {hitDefenseBuoy && turnLost && (
+          <div className="text-3xl font-bold text-orange-400 animate-pulse mt-2">
+            {isPlayerShot ? 'YOU LOSE NEXT TURN!' : 'ENEMY LOSES NEXT TURN!'}
+          </div>
+        )}
         
         {/* Sound effect indicator */}
         <div className="mt-4 text-sm text-gray-400 opacity-60">
-          {result === 'hit' && '💥 BOOM!'}
-          {result === 'miss' && '💧 SPLASH!'}
-          {result === 'sunk' && '🔥 EXPLOSION!'}
+          {hitDefenseBuoy && '🚩 DECOY!'}
+          {!hitDefenseBuoy && result === 'hit' && '💥 BOOM!'}
+          {!hitDefenseBuoy && result === 'miss' && '💧 SPLASH!'}
+          {!hitDefenseBuoy && result === 'sunk' && '🔥 EXPLOSION!'}
         </div>
       </div>
     </div>

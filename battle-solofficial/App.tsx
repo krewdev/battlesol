@@ -133,6 +133,12 @@ const App: React.FC = () => {
       isPlayerAdvantageDisabled: false,
       isOpponentAdvantageDisabled: false,
       isVolleying: false,
+      // Defense buoys initialization - 2 buoys per player in all modes
+      defenseBuoys: [],
+      playerBuoysRemaining: 2,
+      opponentBuoysRemaining: 2,
+      playerTurnSkipped: false,
+      opponentTurnSkipped: false,
     });
     setView('game');
   };
@@ -163,11 +169,14 @@ const App: React.FC = () => {
 
     if (finalGameState.mode === 'Daily AI Battle' && isWin) {
       const rankDetails = getRankDetails(wallet.rank);
-      const gemReward = Math.floor(rankDetails.gemReward * 0.2);
+      // Rank-based reward: higher ranks get more gems
+      const baseReward = Math.floor(rankDetails.gemReward * 0.2);
+      const rankMultiplier = 1 + (wallet.rank - 1) * 0.1; // 10% more per rank level
+      const gemReward = Math.floor(baseReward * rankMultiplier);
       newLockedGems += gemReward;
       newWagerRequirement += gemReward;
       newGemsWon += gemReward;
-      alert(`Daily Battle victory! You earned ${gemReward} locked Gems! Meet the wager requirement to unlock.`);
+      alert(`Daily Battle victory! You earned ${gemReward} locked Gems! (Rank ${wallet.rank} bonus applied) Meet the wager requirement to unlock.`);
     }
 
     const expGained = finalGameState.wager > 0 ? calculateExpGain(finalGameState.wager, isWin) : 0;
