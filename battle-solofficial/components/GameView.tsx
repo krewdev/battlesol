@@ -230,14 +230,21 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
         }
       }
 
-      // Handle Decoy Buoy NFT
-      if (gameState.decoyPosition && aiMove.row === gameState.decoyPosition.row && aiMove.col === gameState.decoyPosition.col) {
+      // Handle Player Decoy Buoys
+      const decoyIdx = gameState.decoyPositionsPlayer.findIndex(p => p.row === aiMove.row && p.col === aiMove.col);
+      if (decoyIdx !== -1) {
+        const updatedDecoys = gameState.decoyPositionsPlayer.filter((_, idx) => idx !== decoyIdx);
         setMessage("Success! The enemy hit our decoy buoy and wasted their turn.");
+        setShotResult({
+          isVisible: true,
+          result: 'decoy',
+          isPlayerShot: false
+        });
         setGameState(gs => gs ? { 
           ...gs, 
           opponentShots: [...gs.opponentShots, aiMove], 
-          turn: 'player', 
-          decoyPosition: null 
+          turn: 'player',
+          decoyPositionsPlayer: updatedDecoys 
         } : null);
         setIsAiThinking(false);
         return;
@@ -376,6 +383,25 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
     
     hitShip = findHitShip(targetCoords);
 
+    // Check for Opponent Decoy before processing ship logic
+    const opponentDecoyIdx = gameState.decoyPositionsOpponent.findIndex(p => p.row === targetCoords.row && p.col === targetCoords.col);
+    if (opponentDecoyIdx !== -1) {
+        const updatedOppDecoys = gameState.decoyPositionsOpponent.filter((_, idx) => idx !== opponentDecoyIdx);
+        setMessage('We hit an enemy decoy buoy! They will get another shot.');
+        setShotResult({
+          isVisible: true,
+          result: 'decoy',
+          isPlayerShot: true
+        });
+        setGameState(gs => gs ? {
+          ...gs,
+          playerShots: [...gs.playerShots, targetCoords],
+          turn: 'opponent',
+          decoyPositionsOpponent: updatedOppDecoys
+        } : null);
+        return;
+    }
+
     // Targeting Computer NFT Logic
     if (!hitShip && gameState.advantage === 'targeting_computer' && !gameState.advantageUsed) {
         const allShipCells = gameState.opponentShips.flatMap(s => s.placements);
@@ -467,20 +493,34 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
     }
   };
   
-  const handlePlacementComplete = (placedShips: Ship[], decoy?: Coordinates) => {
+  const handlePlacementComplete = (placedShips: Ship[], _decoy?: Coordinates) => {
       const shipsWithHealth = placedShips.map(ship => ({
           ...ship,
           extraHealth: ship.id === gameState.reinforcedShipId ? 1 : 0
       }));
 
+      // Helper to generate random decoy coordinates
+      const generateDecoys = (occupied: Coordinates[]): Coordinates[] => {
+          const decoys: Coordinates[] = [];
+          while (decoys.length < 2) {
+              const row = Math.floor(Math.random() * GRID_SIZE);
+              const col = Math.floor(Math.random() * GRID_SIZE);
+              // ensure not overlapping ships or other decoys
+              if (!occupied.some(p => p.row === row && p.col === col) && !decoys.some(p => p.row === row && p.col === col)) {
+                  decoys.push({ row, col });
+              }
+          }
+          return decoys;
+      };
+ 
       if (isPvp) {
          // First placement belongs to Player 1 (turn === 'player')
          if (gameState.playerShips.length === 0) {
-             // Save Player 1 fleet and hand device to Player 2
+             const playerDecoys = generateDecoys(shipsWithHealth.flatMap(s => s.placements));
              setGameState(gs => gs ? {
                  ...gs,
                  playerShips: shipsWithHealth,
-                 decoyPosition: decoy || null,
+                 decoyPositionsPlayer: playerDecoys,
                  status: 'transition',
                  turn: 'opponent',
                  transitionMessage: 'Player 2, prepare to place your fleet.'
@@ -490,9 +530,11 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
 
          // Second placement belongs to Player 2
          if (gameState.opponentShips.length === 0) {
+             const opponentDecoys = generateDecoys(shipsWithHealth.flatMap(s => s.placements));
              setGameState(gs => gs ? {
                  ...gs,
                  opponentShips: shipsWithHealth,
+                 decoyPositionsOpponent: opponentDecoys,
                  status: 'transition',
                  turn: 'player',
                  transitionMessage: 'All fleets deployed. Player 1 takes the first shot.'
@@ -500,12 +542,18 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
              return;
          }
       } else { // PvE
+
+        const playerDecoys = generateDecoys(shipsWithHealth.flatMap(s => s.placements));
+
         const opponentShips = placeOpponentShips();
+        const opponentDecoys = generateDecoys(opponentShips.flatMap(s => s.placements));
+
         setGameState(gs => gs ? { 
             ...gs, 
             playerShips: shipsWithHealth,
             opponentShips,
-            decoyPosition: decoy || null,
+            decoyPositionsPlayer: playerDecoys,
+            decoyPositionsOpponent: opponentDecoys,
             status: 'in_progress',
         } : null);
         setMessage("All fleets deployed. Engage the enemy!");

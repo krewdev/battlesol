@@ -160,7 +160,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
     // Opponent Board Hit/Miss Markers
     if (!isPlayerBoard) {
         if (isShot) {
-           const isDecoyHit = gameState.decoyPosition?.row === row && gameState.decoyPosition?.col === col;
+           const isDecoyHit = gameState.decoyPositionsOpponent?.some(p => p.row === row && p.col === col);
            if(isDecoyHit) {
               return <div className="absolute inset-0 bg-yellow-500/50 flex items-center justify-center"><DecoyIcon className="w-6 h-6 text-yellow-200"/></div>
            }
@@ -195,7 +195,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
     }
 
     // Player Board Markers
-    if (gameState.decoyPosition?.row === row && gameState.decoyPosition?.col === col) {
+    if (gameState.decoyPositionsPlayer?.some(p => p.row === row && p.col === col)) {
       return <div className="absolute inset-0 flex items-center justify-center"><DecoyIcon className="w-6 h-6 text-cyan-glow"/></div>
     }
     if (isShot && shipOnCell) {
@@ -236,7 +236,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
     }
     
     // Show decoy position
-    if(isPlayerBoard && gameState.decoyPosition?.row === row && gameState.decoyPosition?.col === col) {
+    if(isPlayerBoard && gameState.decoyPositionsPlayer?.some(p => p.row === row && p.col === col)) {
         return 'bg-cyan-900/50 border-cyan-400';
     }
 
