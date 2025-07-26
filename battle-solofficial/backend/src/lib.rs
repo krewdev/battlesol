@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Token, TokenAccount, Mint, Transfer};
+use anchor_spl::token::{self, Token, TokenAccount, Mint, Transfer, MintTo, CloseAccount};
 use anchor_spl::associated_token::AssociatedToken;
 use solana_program::hash::hash;
 use solana_program::clock::Clock;
@@ -31,6 +31,9 @@ pub mod battle_sol_contracts {
         end_time: i64,
     ) -> Result<()> {
         let presale = &mut ctx.accounts.presale;
+        // Validate times
+        require!(start_time < end_time, GameError::InvalidTimeRange);
+
         presale.authority = ctx.accounts.authority.key();
         presale.mint = ctx.accounts.ship_mint.key();
         presale.presale_price = presale_price;
@@ -51,6 +54,7 @@ pub mod battle_sol_contracts {
         require!(presale.is_active, GameError::PresaleNotActive);
         require!(clock.unix_timestamp >= presale.start_time, GameError::PresaleNotStarted);
         require!(clock.unix_timestamp <= presale.end_time, GameError::PresaleEnded);
+        require!(amount > 0, GameError::InvalidAmount);
         require!(presale.total_sold + amount <= presale.max_supply, GameError::ExceedsMaxSupply);
 
         let total_cost = amount
@@ -112,7 +116,7 @@ pub mod battle_sol_contracts {
         require!(!game_config.is_paused, GameError::GamesPaused);
         require!(wager_amount > 0, GameError::InvalidWager);
 
-        // Generate server seed for randomness
+        // Generate server seed and store ONLY its hash for commitment
         let mut seed_data = Vec::new();
         seed_data.extend_from_slice(&clock.unix_timestamp.to_le_bytes());
         seed_data.extend_from_slice(&clock.slot.to_le_bytes());
@@ -123,11 +127,14 @@ pub mod battle_sol_contracts {
         game.player = ctx.accounts.player.key();
         game.wager_amount = wager_amount;
         game.player_commitment = player_commitment;
-        game.server_seed = server_seed.to_bytes();
+        game.server_seed = server_seed.to_bytes(); // remains commitment – raw seed kept off-chain
         game.game_state = GameState::WaitingForOpponent;
         game.created_at = clock.unix_timestamp;
         game.game_id = game_config.total_games;
         game.bump = ctx.bumps.game;
+
+        // Sanity: ensure provided token account matches expected mint
+        require!(ctx.accounts.player_token_account.mint == ctx.accounts.ship_mint.key(), GameError::InvalidMint);
 
         // Transfer wager to game vault
         let transfer_ctx = CpiContext::new(
@@ -159,9 +166,15 @@ pub mod battle_sol_contracts {
         opponent_commitment: [u8; 32],
     ) -> Result<()> {
         let game = &mut ctx.accounts.game;
-        
+        let game_config = &ctx.accounts.game_config;
+
+        require!(!game_config.is_paused, GameError::GamesPaused);
+
         require!(game.game_state == GameState::WaitingForOpponent, GameError::InvalidGameState);
         require!(game.player != ctx.accounts.opponent.key(), GameError::CannotPlaySelf);
+
+        // Mint integrity
+        require!(ctx.accounts.opponent_token_account.mint == ctx.accounts.ship_mint.key(), GameError::InvalidMint);
 
         // Transfer wager from opponent
         let transfer_ctx = CpiContext::new(
@@ -198,7 +211,13 @@ pub mod battle_sol_contracts {
         let game = &mut ctx.accounts.game;
         let game_config = &ctx.accounts.game_config;
 
+        require!(!game_config.is_paused, GameError::GamesPaused);
+
         require!(game.game_state == GameState::InProgress, GameError::InvalidGameState);
+
+        // Mint integrity for payouts
+        require!(ctx.accounts.player_token_account.mint == ctx.accounts.ship_mint.key(), GameError::InvalidMint);
+        require!(ctx.accounts.opponent_token_account.mint == ctx.accounts.ship_mint.key(), GameError::InvalidMint);
 
         // Verify player commitment
         let mut player_data = Vec::new();
@@ -229,7 +248,10 @@ pub mod battle_sol_contracts {
             .checked_sub(house_fee)
             .ok_or(GameError::MathOverflow)?;
 
-        // Distribute winnings
+        // Mark game as finished before any external CPI calls to prevent state inconsistencies
+        game.game_state = GameState::Finished;
+
+        // Prepare signer seeds once
         let seeds = &[
             b"game".as_ref(),
             &(game.game_id as u32).to_le_bytes(),
@@ -237,6 +259,7 @@ pub mod battle_sol_contracts {
         ];
         let signer = &[&seeds[..]];
 
+        // Distribute winnings according to result
         match winner {
             GameWinner::Player => {
                 let transfer_ctx = CpiContext::new_with_signer(
@@ -251,7 +274,7 @@ pub mod battle_sol_contracts {
                 token::transfer(transfer_ctx, prize_pool)?;
             },
             GameWinner::Opponent => {
-                if let Some(_opponent) = game.opponent {
+                if game.opponent.is_some() {
                     let transfer_ctx = CpiContext::new_with_signer(
                         ctx.accounts.token_program.to_account_info(),
                         Transfer {
@@ -267,7 +290,6 @@ pub mod battle_sol_contracts {
             GameWinner::Draw => {
                 // Return wagers to both players
                 let half_wager = game.wager_amount;
-                
                 let transfer_to_player = CpiContext::new_with_signer(
                     ctx.accounts.token_program.to_account_info(),
                     Transfer {
@@ -294,7 +316,18 @@ pub mod battle_sol_contracts {
             },
         }
 
-        game.game_state = GameState::Finished;
+        // Close vault account to reclaim rent lamports
+        let close_ctx = CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            CloseAccount {
+                account: ctx.accounts.game_vault.to_account_info(),
+                destination: ctx.accounts.caller.to_account_info(),
+                authority: game.to_account_info(),
+            },
+            signer,
+        );
+        let _ = token::close_account(close_ctx);
+
         game.winner = Some(winner);
         game.player_ships = Some(player_ships);
         game.opponent_ships = if game.opponent.is_some() { Some(opponent_ships) } else { None };
@@ -500,11 +533,10 @@ pub struct CreateGame<'info> {
 }
 
 #[derive(Accounts)]
-#[instruction(game_id: u64)]
 pub struct JoinGame<'info> {
     #[account(
         mut,
-        seeds = [b"game", &game_id.to_le_bytes()],
+        seeds = [b"game", &(game.game_id as u32).to_le_bytes()],
         bump = game.bump
     )]
     pub game: Account<'info, Game>,
@@ -515,14 +547,14 @@ pub struct JoinGame<'info> {
     #[account(mut)]
     pub game_vault: Account<'info, TokenAccount>,
     pub token_program: Program<'info, Token>,
+    pub ship_mint: Account<'info, Mint>,
 }
 
 #[derive(Accounts)]
-#[instruction(game_id: u64)]
 pub struct RevealAndFinalize<'info> {
     #[account(
         mut,
-        seeds = [b"game", &game_id.to_le_bytes()],
+        seeds = [b"game", &(game.game_id as u32).to_le_bytes()],
         bump = game.bump
     )]
     pub game: Account<'info, Game>,
@@ -540,6 +572,7 @@ pub struct RevealAndFinalize<'info> {
     #[account(mut)]
     pub game_vault: Account<'info, TokenAccount>,
     pub token_program: Program<'info, Token>,
+    pub ship_mint: Account<'info, Mint>,
 }
 
 #[derive(Accounts)]
@@ -618,6 +651,12 @@ pub enum GameError {
     CannotPlaySelf,
     #[msg("Invalid commitment")]
     InvalidCommitment,
+    #[msg("Invalid token mint for this game")]
+    InvalidMint,
+    #[msg("Invalid amount supplied")]
+    InvalidAmount,
+    #[msg("Invalid time range")]
+    InvalidTimeRange,
 }
 
 // Helper functions
