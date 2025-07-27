@@ -104,12 +104,14 @@ const App: React.FC = () => {
 
     // Guest mode is a free trial
     if (wallet.isGuest) {
-        setGameState({
+        const guestGameState = {
             mode: 'Player vs AI',
             wager: 0,
             advantage: selectedNft?.advantage || null,
             playerShips: [], opponentShips: [], playerShots: [], opponentShots: [], status: 'placing_ships', turn: 'player', winner: null, advantageUsed: false, transitionMessage: '', playerNftSkinUrl: null, hoveredCell: null, aiMode: 'searching', aiHuntQueue: [], reinforcedShipId: null, isPlayerAdvantageDisabled: false, isOpponentAdvantageDisabled: false, isVolleying: false, playerDecoys: [], opponentDecoys: [], playerDecoysRemaining: 2, opponentDecoysRemaining: 2, playerTurnSkipped: false, opponentTurnSkipped: false,
-        });
+        };
+        console.log('Setting guest game state:', guestGameState);
+        setGameState(guestGameState);
         setView('game');
         return;
     }
@@ -403,6 +405,7 @@ const App: React.FC = () => {
   };
 
   const renderView = () => {
+    console.log('renderView called with view:', view, 'gameState:', gameState);
     if (!wallet) {
         return <LandingPage onPlayAsGuest={handlePlayAsGuest} />;
     }
@@ -420,7 +423,12 @@ const App: React.FC = () => {
     switch (view) {
       case 'game':
         if (!gameState) return <Dashboard {...dashboardProps} />;
-        return <GameView gameState={gameState} setGameState={setGameState} onGameEnd={handleGameEnd} wallet={wallet} />;
+        try {
+          return <GameView gameState={gameState} setGameState={setGameState} onGameEnd={handleGameEnd} wallet={wallet} />;
+        } catch (error) {
+          console.error('Error rendering GameView:', error);
+          return <div className="text-center p-8">Error loading game: {error.message}</div>;
+        }
       case 'nft_store':
         return <NftStore onBuyNft={handleBuyNft} wallet={wallet}/>;
       case 'deposit':

@@ -97,6 +97,7 @@ interface GameViewProps {
 }
 
 const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd, wallet }) => {
+  console.log('GameView rendering with gameState:', gameState);
   const [message, setMessage] = useState('Place your fleet on the board.');
   const [isScanning, setIsScanning] = useState(false);
   const [isVolleying, setIsVolleying] = useState(false);
@@ -709,6 +710,14 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
   };
 
   if (!gameState) return <div>Loading game...</div>;
+  
+  // Add error boundary for debugging
+  try {
+    console.log('GameView about to render with gameState:', gameState);
+  } catch (error) {
+    console.error('Error in GameView:', error);
+    return <div>Error loading game: {error.message}</div>;
+  }
   
   if (gameState.status === 'transition') {
       return <TurnSwitchScreen message={gameState.transitionMessage} onReady={handleReadyForTurn} turn={gameState.turn} />;
