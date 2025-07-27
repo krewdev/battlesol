@@ -22,6 +22,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
   const [isPlacingDecoys, setIsPlacingDecoys] = useState(false);
   const [placedDecoys, setPlacedDecoys] = useState<Coordinates[]>([]);
   const [currentDecoyIndex, setCurrentDecoyIndex] = useState(0);
+  const [message, setMessage] = useState('');
 
   let shipsToDisplay: Ship[];
   let shotsToDisplay: Coordinates[];
@@ -40,6 +41,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
     setIsPlacingDecoys(false);
     setPlacedDecoys([]);
     setCurrentDecoyIndex(0);
+    setMessage('');
   }
 
   useEffect(() => {
@@ -76,24 +78,38 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
   };
 
   const placeDecoy = (row: number, col: number) => {
-    if (shipsToDisplay.some(s => s.placements.some(p => p.row === row && p.col === col)) ||
-        placedDecoys.some(d => d.row === row && d.col === col)) {
+    // Check for overlap with ships
+    if (shipsToDisplay.some(s => s.placements.some(p => p.row === row && p.col === col))) {
       setInvalidPlacement([{ row, col }]);
       setTimeout(() => setInvalidPlacement([]), 300);
       return;
     }
+    
+    // Check for overlap with other decoys
+    if (placedDecoys.some(d => d.row === row && d.col === col)) {
+      setInvalidPlacement([{ row, col }]);
+      setTimeout(() => setInvalidPlacement([]), 300);
+      return;
+    }
+    
     const adjacent = isAdjacentToShip(row, col, shipsToDisplay);
     if (adjacent) {
       // Show warning but allow placement
-      alert('Warning: Placing a decoy next to a ship will cause that ship to be instantly sunk if the decoy is hit!');
+      setMessage('Warning: Placing a decoy next to a ship will cause that ship to be instantly sunk if the decoy is hit!');
+      setTimeout(() => setMessage(''), 3000);
     }
+    
     const newDecoys = [...placedDecoys, { row, col }];
     setPlacedDecoys(newDecoys);
     const nextDecoyIndex = currentDecoyIndex + 1;
     setCurrentDecoyIndex(nextDecoyIndex);
+    
+    // Continue to next decoy or complete placement
     if (nextDecoyIndex >= 2) {
       onPlacementComplete!(shipsToDisplay, newDecoys);
       resetPlacementState();
+    } else {
+      setMessage(`Place your ${nextDecoyIndex + 1}${nextDecoyIndex === 0 ? 'st' : 'nd'} Decoy Buoy`);
     }
   };
 
@@ -144,6 +160,7 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
       if (nextIndex >= SHIP_CONFIG.length) {
          // Always place 2 decoys in all game modes
          setIsPlacingDecoys(true);
+         setMessage('Place your 1st Decoy Buoy');
       }
     } else {
       // Show invalid placement feedback
@@ -357,7 +374,10 @@ const GameBoard: React.FC<GameBoardProps> = ({ isPlayerBoard, gameState, onFire,
       {gameState.status === 'placing_ships' && isPlayerBoard && (
          <div className="mt-4 text-center p-4 bg-navy-800 rounded-lg border border-navy-700 w-full max-w-sm">
            {isPlacingDecoys ? (
-              <p className="text-lg font-semibold text-cyan-glow animate-pulse">Place your Decoy Buoy</p>
+              <>
+                <p className="text-lg font-semibold text-cyan-glow animate-pulse">{message}</p>
+                <p className="text-sm text-neutral-400 mt-2">Decoy {currentDecoyIndex + 1} of 2</p>
+              </>
            ) : currentShipIndex < SHIP_CONFIG.length ? (
             <>
                 <p className="text-lg font-semibold">Place your <span className="text-yellow-glow font-bold">{SHIP_CONFIG[currentShipIndex].name}</span> ({SHIP_CONFIG[currentShipIndex].length} cells)</p>

@@ -571,16 +571,22 @@ const GameView: React.FC<GameViewProps> = ({ gameState, setGameState, onGameEnd,
         }
       } else {
         // PvE: place AI decoys and start game
-        const opponentShips = placeOpponentShips();
-        const opponentDecoys = placeOpponentDecoysWithShips(opponentShips);
-        setGameState(gs => gs ? {
-          ...gs,
-          playerDecoys: decoys || [],
-          opponentShips,
-          opponentDecoys,
-          status: 'in_progress',
-        } : null);
-        setMessage('All fleets and decoys deployed. Engage the enemy!');
+        setMessage('AI is deploying its fleet and decoys...');
+        setTimeout(() => {
+          const opponentShips = placeOpponentShips();
+          setMessage('AI is placing its decoys...');
+          setTimeout(() => {
+            const opponentDecoys = placeOpponentDecoysWithShips(opponentShips);
+            setGameState(gs => gs ? {
+              ...gs,
+              playerDecoys: decoys || [],
+              opponentShips,
+              opponentDecoys,
+              status: 'in_progress',
+            } : null);
+            setMessage('All fleets and decoys deployed. Engage the enemy!');
+          }, 1000);
+        }, 1000);
       }
     }
   };
@@ -873,23 +879,74 @@ const isAdjacentToShip = (row: number, col: number, ships: Ship[]) => {
 const placeOpponentDecoysWithShips = (opponentShips: Ship[]): Coordinates[] => {
   const decoys: Coordinates[] = [];
   const allShipPlacements = opponentShips.flatMap(ship => ship.placements);
+  
+  // Place each decoy individually with strategic placement
   for (let i = 0; i < 2; i++) {
     let placed = false;
     let attempts = 0;
-    while (!placed && attempts < 100) {
-      const row = Math.floor(Math.random() * GRID_SIZE);
-      const col = Math.floor(Math.random() * GRID_SIZE);
-      const newDecoy = { row, col };
-      const isOverlappingWithShips = allShipPlacements.some(p => p.row === row && p.col === col);
-      const isOverlappingWithDecoys = decoys.some(d => d.row === row && d.col === col);
-      const isAdjacent = isAdjacentToShip(row, col, opponentShips);
-      if (!isOverlappingWithShips && !isOverlappingWithDecoys && !isAdjacent) {
+    
+    // AI strategy: prefer placing decoys near ships for tactical advantage
+    const strategicPositions = [];
+    
+    // First, try to place near ships for tactical advantage
+    for (let row = 0; row < GRID_SIZE; row++) {
+      for (let col = 0; col < GRID_SIZE; col++) {
+        const isAdjacent = isAdjacentToShip(row, col, opponentShips);
+        if (isAdjacent) {
+          strategicPositions.push({ row, col, priority: 1 });
+        }
+      }
+    }
+    
+    // Then add random positions as fallback
+    for (let row = 0; row < GRID_SIZE; row++) {
+      for (let col = 0; col < GRID_SIZE; col++) {
+        if (!strategicPositions.some(p => p.row === row && p.col === col)) {
+          strategicPositions.push({ row, col, priority: 2 });
+        }
+      }
+    }
+    
+    // Shuffle positions within each priority level
+    strategicPositions.sort((a, b) => {
+      if (a.priority !== b.priority) return a.priority - b.priority;
+      return Math.random() - 0.5;
+    });
+    
+    while (!placed && attempts < strategicPositions.length) {
+      const pos = strategicPositions[attempts];
+      const newDecoy = { row: pos.row, col: pos.col };
+      
+      const isOverlappingWithShips = allShipPlacements.some(p => p.row === pos.row && p.col === pos.col);
+      const isOverlappingWithDecoys = decoys.some(d => d.row === pos.row && d.col === pos.col);
+      
+      if (!isOverlappingWithShips && !isOverlappingWithDecoys) {
         decoys.push(newDecoy);
         placed = true;
+        console.log(`AI placed decoy ${i + 1} at [${pos.row}, ${pos.col}]`);
       }
       attempts++;
     }
+    
+    // Fallback: if strategic placement fails, use random placement
+    if (!placed) {
+      while (!placed && attempts < 200) {
+        const row = Math.floor(Math.random() * GRID_SIZE);
+        const col = Math.floor(Math.random() * GRID_SIZE);
+        const newDecoy = { row, col };
+        const isOverlappingWithShips = allShipPlacements.some(p => p.row === row && p.col === col);
+        const isOverlappingWithDecoys = decoys.some(d => d.row === row && d.col === col);
+        
+        if (!isOverlappingWithShips && !isOverlappingWithDecoys) {
+          decoys.push(newDecoy);
+          placed = true;
+          console.log(`AI placed decoy ${i + 1} at [${row}, ${col}] (fallback)`);
+        }
+        attempts++;
+      }
+    }
   }
+  
   return decoys;
 };
 
